@@ -15,8 +15,20 @@ print(f"Calificacion asistancia: {calificacion_asistencia}")
 
 def calcular_calificacion(porcentaje, calificacion_maxima, calificacion_alumno):
     calificacion_salida = 0
-    calificacion_salida = int(calificacion_alumno) * porcentaje / calificacion_maxima
+    calificacion_salida = int(calificacion_alumno) * porcentaje / calificacion_maxima /10
 
-    print(f"Calificacion {calificacion_salida}")
+    return calificacion_salida
 
-calcular_calificacion(examen, 10, calificacion_examen)
+calificacion_examen_final = calcular_calificacion(examen, 10, calificacion_examen)
+calificacion_tareas_final = calcular_calificacion(tareas, 10, calificacion_tareas)
+calificacion_trabajos_final = calcular_calificacion(trabajos, 10, calificacion_trabajos)
+calificacion_asistencia_final = calcular_calificacion(asistencia, 10, calificacion_asistencia)
+
+print(f"Examen: {calificacion_examen_final}")
+print(f"Tareas: {calificacion_tareas_final}")
+print(f"Trabajos: {calificacion_trabajos_final}")
+print(f"Asistencia: {calificacion_asistencia_final}")
+
+final = calificacion_examen_final + calificacion_tareas_final + calificacion_asistencia_final + calificacion_trabajos_final
+
+print(f"Calificacion final {final}")    
