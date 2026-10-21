@@ -1,0 +1,18 @@
+# Dependencies and build artifacts
+node_modules/
+dist/
+target/
+*.jar
+*.war
+
+# IDE and OS
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+
+# Environment and logs
+*.log
+.env
+.env.local
