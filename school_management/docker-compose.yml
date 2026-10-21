@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marsella_exam_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: examdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: America/Mexico_City
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d examdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - exam_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: marsella_exam_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/examdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      JWT_SECRET: c3VwZXItc2VjcmV0LWtleS1mb3ItZXhhbS1wbGF0Zm9ybS1tYXJzZWxsYS0yMDI2LXNwcmluZy1ib290LWF1dGg=
+      JWT_EXPIRATION_MS: 604800000
+      TZ: America/Mexico_City
+    ports:
+      - "8080:8080"
+    networks:
+      - exam_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: marsella_exam_frontend
+    restart: always
+    environment:
+      TZ: America/Mexico_City
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "3000:80"
+    networks:
+      - exam_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  exam_network:
+    driver: bridge
