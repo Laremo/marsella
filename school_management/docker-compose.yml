@@ -59,7 +59,8 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
+    name: general_postgres_data
+    external: true
 
 networks:
   exam_network:

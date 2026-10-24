@@ -28,6 +28,7 @@ public class ExamService {
     private final StudentSubmissionRepository submissionRepository;
     private final ObjectMapper objectMapper;
     private final ExcelExportService excelExportService;
+    private final GradingService gradingService;
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private final SecureRandom random = new SecureRandom();
 
@@ -205,8 +206,12 @@ public class ExamService {
             exam.setIsActive(request.getIsActive());
         }
 
-        // Update questions
-        exam.getQuestions().clear();
+        // Update questions preserving existing IDs where possible
+        Map<Long, Question> existingById = exam.getQuestions().stream()
+                .filter(q -> q.getId() != null)
+                .collect(Collectors.toMap(Question::getId, q -> q));
+
+        List<Question> updatedList = new ArrayList<>();
         double totalPoints = 0.0;
 
         if (request.getQuestions() != null) {
@@ -215,22 +220,68 @@ public class ExamService {
                 double points = qDto.getPoints() != null ? qDto.getPoints() : 0.0;
                 totalPoints += points;
 
-                Question question = Question.builder()
-                        .exam(exam)
-                        .questionOrder(order++)
-                        .prompt(qDto.getPrompt().trim())
-                        .type(qDto.getType())
-                        .points(points)
-                        .questionData(qDto.getQuestionData())
-                        .correctAnswer(qDto.getCorrectAnswer())
-                        .build();
-                exam.getQuestions().add(question);
+                if (qDto.getId() != null && existingById.containsKey(qDto.getId())) {
+                    Question existing = existingById.get(qDto.getId());
+                    existing.setQuestionOrder(order++);
+                    existing.setPrompt(qDto.getPrompt().trim());
+                    existing.setType(qDto.getType());
+                    existing.setPoints(points);
+                    existing.setQuestionData(qDto.getQuestionData());
+                    existing.setCorrectAnswer(qDto.getCorrectAnswer());
+                    updatedList.add(existing);
+                } else {
+                    Question question = Question.builder()
+                            .exam(exam)
+                            .questionOrder(order++)
+                            .prompt(qDto.getPrompt().trim())
+                            .type(qDto.getType())
+                            .points(points)
+                            .questionData(qDto.getQuestionData())
+                            .correctAnswer(qDto.getCorrectAnswer())
+                            .build();
+                    updatedList.add(question);
+                }
             }
         }
 
+        exam.getQuestions().clear();
+        exam.getQuestions().addAll(updatedList);
         exam.setTotalPoints(Math.round(totalPoints * 100.0) / 100.0);
         Exam saved = examRepository.save(exam);
+
+        // Automatically recalculate and sync all existing student submissions
+        regradeSubmissionsForExam(saved);
+
         return mapToResponse(saved);
+    }
+
+    @Transactional
+    public int regradeSubmissionsForExam(Exam exam) {
+        List<StudentSubmission> submissions = submissionRepository.findByExamIdOrderByStartedAtDesc(exam.getId());
+        int updated = 0;
+        for (StudentSubmission sub : submissions) {
+            if (Boolean.TRUE.equals(sub.getIsCompleted()) || (sub.getAnswersJson() != null && !sub.getAnswersJson().isBlank())) {
+                GradingService.GradingOutput grading = gradingService.gradeSubmission(sub);
+                sub.setScore(grading.totalScore);
+                sub.setMaxScore(grading.maxScore);
+                try {
+                    sub.setGradingDetailsJson(objectMapper.writeValueAsString(grading.results));
+                } catch (Exception e) {
+                    log.error("Failed to serialize regraded results for submission {}", sub.getId(), e);
+                }
+                submissionRepository.save(sub);
+                updated++;
+            }
+        }
+        log.info("Recalculated grades for {} submission(s) of exam {}", updated, exam.getId());
+        return updated;
+    }
+
+    @Transactional
+    public int regradeExamSubmissions(Long teacherId, Long examId) {
+        Exam exam = examRepository.findByIdAndTeacherId(examId, teacherId)
+                .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
+        return regradeSubmissionsForExam(exam);
     }
 
     @Transactional

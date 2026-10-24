@@ -37,6 +37,26 @@ public class GradingService {
             }
         }
 
+        List<QuestionResultDto> previousDetails = new ArrayList<>();
+        if (submission.getGradingDetailsJson() != null && !submission.getGradingDetailsJson().isBlank()) {
+            try {
+                previousDetails = objectMapper.readValue(submission.getGradingDetailsJson(), new TypeReference<List<QuestionResultDto>>() {});
+            } catch (Exception e) {
+                log.debug("No previous grading details or failed to parse for submission {}", submission.getId());
+            }
+        }
+
+        Map<Long, QuestionResultDto> prevById = new HashMap<>();
+        Map<Integer, QuestionResultDto> prevByOrder = new HashMap<>();
+        Map<String, QuestionResultDto> prevByPrompt = new HashMap<>();
+        if (previousDetails != null) {
+            for (QuestionResultDto prev : previousDetails) {
+                if (prev.getQuestionId() != null) prevById.put(prev.getQuestionId(), prev);
+                if (prev.getQuestionOrder() != null) prevByOrder.put(prev.getQuestionOrder(), prev);
+                if (prev.getPrompt() != null) prevByPrompt.put(prev.getPrompt().trim().toLowerCase(), prev);
+            }
+        }
+
         double totalScore = 0.0;
         double maxScore = 0.0;
 
@@ -44,15 +64,87 @@ public class GradingService {
             double qPoints = question.getPoints() != null ? question.getPoints() : 0.0;
             maxScore += qPoints;
 
-            Object rawStudentAnswer = studentAnswersMap.get(String.valueOf(question.getId()));
+            Object rawStudentAnswer = resolveStudentAnswer(question, studentAnswersMap, prevById, prevByOrder, prevByPrompt);
             QuestionResultDto result = evaluateQuestion(question, rawStudentAnswer);
             totalScore += result.getAwardedPoints();
             output.results.add(result);
         }
 
+        boolean allCorrect = !questions.isEmpty();
+        for (QuestionResultDto r : output.results) {
+            if (!Boolean.TRUE.equals(r.getIsCorrect())) {
+                allCorrect = false;
+                break;
+            }
+        }
+
         output.totalScore = Math.round(totalScore * 100.0) / 100.0;
         output.maxScore = Math.round(maxScore * 100.0) / 100.0;
+
+        if (submission.getExam() != null && submission.getExam().getTotalPoints() != null) {
+            double examTotal = submission.getExam().getTotalPoints();
+            if (examTotal > 0 && Math.abs(output.maxScore - examTotal) <= 0.05) {
+                output.maxScore = examTotal;
+            }
+        }
+
+        if (allCorrect) {
+            output.totalScore = output.maxScore;
+        }
+
         return output;
+    }
+
+    private Object resolveStudentAnswer(
+            Question question,
+            Map<String, Object> studentAnswersMap,
+            Map<Long, QuestionResultDto> prevById,
+            Map<Integer, QuestionResultDto> prevByOrder,
+            Map<String, QuestionResultDto> prevByPrompt
+    ) {
+        // 1. Direct match by current question ID
+        if (question.getId() != null) {
+            Object ans = studentAnswersMap.get(String.valueOf(question.getId()));
+            if (ans != null) return ans;
+        }
+
+        // 2. Direct match by current question order
+        if (question.getQuestionOrder() != null) {
+            Object ans = studentAnswersMap.get(String.valueOf(question.getQuestionOrder()));
+            if (ans != null) return ans;
+        }
+
+        // 3. Match from previous details by question ID
+        if (question.getId() != null && prevById.containsKey(question.getId())) {
+            QuestionResultDto prev = prevById.get(question.getId());
+            if (prev.getStudentAnswer() != null) return prev.getStudentAnswer();
+            if (prev.getQuestionId() != null && studentAnswersMap.containsKey(String.valueOf(prev.getQuestionId()))) {
+                return studentAnswersMap.get(String.valueOf(prev.getQuestionId()));
+            }
+        }
+
+        // 4. Match from previous details by question order
+        if (question.getQuestionOrder() != null && prevByOrder.containsKey(question.getQuestionOrder())) {
+            QuestionResultDto prev = prevByOrder.get(question.getQuestionOrder());
+            if (prev.getStudentAnswer() != null) return prev.getStudentAnswer();
+            if (prev.getQuestionId() != null && studentAnswersMap.containsKey(String.valueOf(prev.getQuestionId()))) {
+                return studentAnswersMap.get(String.valueOf(prev.getQuestionId()));
+            }
+        }
+
+        // 5. Match from previous details by prompt text
+        if (question.getPrompt() != null) {
+            String pKey = question.getPrompt().trim().toLowerCase();
+            if (prevByPrompt.containsKey(pKey)) {
+                QuestionResultDto prev = prevByPrompt.get(pKey);
+                if (prev.getStudentAnswer() != null) return prev.getStudentAnswer();
+                if (prev.getQuestionId() != null && studentAnswersMap.containsKey(String.valueOf(prev.getQuestionId()))) {
+                    return studentAnswersMap.get(String.valueOf(prev.getQuestionId()));
+                }
+            }
+        }
+
+        return null;
     }
 
     private QuestionResultDto evaluateQuestion(Question question, Object studentAnswer) {

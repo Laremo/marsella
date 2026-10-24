@@ -33,6 +33,7 @@ import {
   HelpOutline as PartialIcon,
   Refresh as RefreshIcon,
   FileDownload as ExportIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -50,7 +51,9 @@ export default function TeacherSubmissionsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Detail Modal state
   const [selectedSub, setSelectedSub] = useState(null);
@@ -115,6 +118,29 @@ export default function TeacherSubmissionsPage() {
     }
   };
 
+  const handleRecalculateGrades = async () => {
+    try {
+      setRecalculating(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+      const res = await api.post(`/teacher/exams/${id}/recalculate-grades`);
+      const count = res.data?.updatedSubmissions ?? 0;
+      setSuccessMessage(
+        `¡Se recalcularon exitosamente las calificaciones de ${count} entrega(s) con base en los nuevos valores del examen!`
+      );
+      await fetchData();
+    } catch (err) {
+      console.error('Error recalculating grades', err);
+      setErrorMessage(
+        err.response?.data?.error ||
+        err.message ||
+        'Error al recalcular calificaciones.'
+      );
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [id]);
@@ -170,10 +196,24 @@ export default function TeacherSubmissionsPage() {
               size="small"
               startIcon={refreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
               onClick={() => fetchData(true)}
-              disabled={refreshing || downloading}
+              disabled={refreshing || downloading || recalculating}
               sx={{ fontWeight: 600, borderRadius: '8px' }}
             >
               Actualizar
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="Recalcular calificaciones de todos los alumnos si cambiaste preguntas, puntajes o respuestas correctas">
+            <Button
+              variant="outlined"
+              color="secondary"
+              size="small"
+              startIcon={recalculating ? <CircularProgress size={16} color="inherit" /> : <CalculateIcon />}
+              onClick={handleRecalculateGrades}
+              disabled={recalculating || refreshing || downloading || submissions.length === 0}
+              sx={{ fontWeight: 600, borderRadius: '8px' }}
+            >
+              Recalcular Calificaciones
             </Button>
           </Tooltip>
 
@@ -184,7 +224,7 @@ export default function TeacherSubmissionsPage() {
               size="small"
               startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <ExportIcon />}
               onClick={handleExportExcel}
-              disabled={downloading}
+              disabled={downloading || recalculating}
               sx={{ fontWeight: 600, borderRadius: '8px' }}
             >
               Exportar a Excel
@@ -192,6 +232,12 @@ export default function TeacherSubmissionsPage() {
           </Tooltip>
         </Box>
       </Box>
+
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setSuccessMessage('')}>
+          {successMessage}
+        </Alert>
+      )}
 
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>

@@ -140,4 +140,23 @@ public class TeacherExamController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @PostMapping("/{id}/recalculate-grades")
+    public ResponseEntity<?> recalculateGrades(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long id) {
+        try {
+            int updated = examService.regradeExamSubmissions(teacher.getId(), id);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Calificaciones recalculadas con éxito",
+                    "updatedSubmissions", updated
+            ));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error al recalcular calificaciones para el examen {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al recalcular calificaciones: " + e.getMessage()));
+        }
+    }
 }
