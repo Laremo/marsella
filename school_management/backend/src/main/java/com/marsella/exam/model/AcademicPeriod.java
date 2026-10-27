@@ -38,6 +38,13 @@ public class AcademicPeriod {
     @Builder.Default
     private Boolean isCurrent = false;
 
+    /**
+     * Peso / porcentaje de este bloque en la calificación final anual/total del curso (ej. 33.3%, 20%, 40%)
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Double periodWeight = 100.0;
+
     // --- Ponderaciones / Evaluation Weights (Percentages summing to 100) ---
 
     @Column(nullable = false)

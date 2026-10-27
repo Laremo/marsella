@@ -63,6 +63,11 @@ public class SchoolGroup {
     private List<AcademicPeriod> periods = new ArrayList<>();
 
     @OneToMany(mappedBy = "schoolGroup", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    @Builder.Default
+    private List<GroupEvaluationWeight> evaluationWeights = new ArrayList<>();
+
+    @OneToMany(mappedBy = "schoolGroup", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("fullName ASC")
     @JsonIgnore
     @Builder.Default

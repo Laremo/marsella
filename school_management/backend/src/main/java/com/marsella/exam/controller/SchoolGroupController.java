@@ -88,4 +88,28 @@ public class SchoolGroupController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         }
     }
+
+    @PutMapping("/{id}/weights")
+    public ResponseEntity<?> updateGroupWeights(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long id,
+            @RequestBody List<com.marsella.exam.dto.GroupEvaluationWeightDto> weights) {
+        try {
+            return ResponseEntity.ok(groupService.updateGroupEvaluationWeights(teacher.getId(), id, weights));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/periods-weights")
+    public ResponseEntity<?> updatePeriodsWeights(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long id,
+            @RequestBody List<AcademicPeriodDto> periodDtos) {
+        try {
+            return ResponseEntity.ok(groupService.updatePeriodsWeights(teacher.getId(), id, periodDtos));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
 }

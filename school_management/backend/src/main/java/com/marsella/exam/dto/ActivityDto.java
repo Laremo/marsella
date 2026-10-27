@@ -34,8 +34,8 @@ public class ActivityDto {
         private Double maxPoints;
 
         private LocalDate dueDate;
-
         private Boolean isExtraPoints;
+        private Long evaluationWeightId;
     }
 
     @Data
@@ -54,6 +54,8 @@ public class ActivityDto {
         private Double maxPoints;
         private LocalDate dueDate;
         private Boolean isExtraPoints;
+        private Long evaluationWeightId;
+        private String evaluationWeightName;
         private int gradedCount;
         private LocalDateTime createdAt;
     }

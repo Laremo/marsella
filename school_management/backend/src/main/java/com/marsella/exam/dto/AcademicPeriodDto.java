@@ -21,6 +21,7 @@ public class AcademicPeriodDto {
     private Boolean isCurrent;
 
     // Weights
+    private Double periodWeight; // Peso del bloque en la calificación final anual
     private Double examWeight;
     private Double activityWeight;
     private Double attendanceWeight;

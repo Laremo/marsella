@@ -36,6 +36,8 @@ import {
   FormControlLabel,
   Slider,
   Snackbar,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
 } from '@mui/material';
 import {
@@ -112,14 +114,11 @@ export default function TeacherGroupDetailPage() {
   const [bulkRawText, setBulkRawText] = useState('');
   const [importing, setImporting] = useState(false);
 
-  // Tab 1: Periods & Weights State
-  const [weightsModalOpen, setWeightsModalOpen] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState(null);
-  const [editingPeriodName, setEditingPeriodName] = useState('');
-  const [examWeight, setExamWeight] = useState(40);
-  const [activityWeight, setActivityWeight] = useState(40);
-  const [attendanceWeight, setAttendanceWeight] = useState(20);
-  const [conductWeight, setConductWeight] = useState(0);
+  // Tab 1: Group Evaluation Weights & Period Weights State
+  const [groupWeightsModalOpen, setGroupWeightsModalOpen] = useState(false);
+  const [editingGroupWeights, setEditingGroupWeights] = useState([]);
+  const [periodWeightsModalOpen, setPeriodWeightsModalOpen] = useState(false);
+  const [editingPeriodWeights, setEditingPeriodWeights] = useState([]);
 
   // Tab 2: Attendance State
   const [attendanceDate, setAttendanceDate] = useState(dayjs().format('YYYY-MM-DD'));
@@ -132,6 +131,7 @@ export default function TeacherGroupDetailPage() {
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [actTitle, setActTitle] = useState('');
   const [actType, setActType] = useState('TAREA');
+  const [actEvaluationWeightId, setActEvaluationWeightId] = useState('');
   const [actMaxPoints, setActMaxPoints] = useState(10);
   const [actDueDate, setActDueDate] = useState(dayjs().add(3, 'day').format('YYYY-MM-DD'));
   const [actIsExtra, setActIsExtra] = useState(false);
@@ -148,8 +148,10 @@ export default function TeacherGroupDetailPage() {
   const [incDescription, setIncDescription] = useState('');
   const [incDeduction, setIncDeduction] = useState(0);
 
-  // Tab 5: Gradebook State
+  // Tab 5: Gradebook State (Period vs Annual)
+  const [gradebookViewMode, setGradebookViewMode] = useState('period'); // 'period' | 'annual'
   const [gradebook, setGradebook] = useState(null);
+  const [annualGradebook, setAnnualGradebook] = useState(null);
   const [gradebookLoading, setGradebookLoading] = useState(false);
 
   const fetchGroupDetails = async () => {
@@ -240,6 +242,18 @@ export default function TeacherGroupDetailPage() {
     }
   };
 
+  const fetchAnnualGradebook = async () => {
+    setGradebookLoading(true);
+    try {
+      const res = await api.get(`/teacher/groups/${id}/annual-gradebook`);
+      setAnnualGradebook(res.data);
+    } catch (err) {
+      console.error('Error fetching annual gradebook', err);
+    } finally {
+      setGradebookLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGroupDetails();
     fetchStudents();
@@ -247,19 +261,21 @@ export default function TeacherGroupDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (selectedPeriodId) {
-      if (currentTab === 2) {
-        fetchDailyAttendance(attendanceDate);
-        fetchAttendanceSummary(selectedPeriodId);
-      } else if (currentTab === 3) {
-        fetchActivities(selectedPeriodId);
-      } else if (currentTab === 4) {
-        fetchIncidents(selectedPeriodId);
-      } else if (currentTab === 5) {
+    if (currentTab === 2 && selectedPeriodId) {
+      fetchDailyAttendance(attendanceDate);
+      fetchAttendanceSummary(selectedPeriodId);
+    } else if (currentTab === 3 && selectedPeriodId) {
+      fetchActivities(selectedPeriodId);
+    } else if (currentTab === 4 && selectedPeriodId) {
+      fetchIncidents(selectedPeriodId);
+    } else if (currentTab === 5) {
+      if (gradebookViewMode === 'annual') {
+        fetchAnnualGradebook();
+      } else if (selectedPeriodId) {
         fetchGradebook(selectedPeriodId);
       }
     }
-  }, [selectedPeriodId, currentTab]);
+  }, [selectedPeriodId, currentTab, gradebookViewMode]);
 
   // Tab 0 Handlers (Students)
   const handleAddStudent = async (e) => {
@@ -330,33 +346,84 @@ export default function TeacherGroupDetailPage() {
     }
   };
 
-  // Tab 1 Handlers (Periods & Weights)
-  const handleOpenWeights = (period) => {
-    setEditingPeriod(period);
-    setEditingPeriodName(period.name || '');
-    setExamWeight(period.examWeight || 40);
-    setActivityWeight(period.activityWeight || 40);
-    setAttendanceWeight(period.attendanceWeight || 20);
-    setConductWeight(period.conductWeight || 0);
-    setWeightsModalOpen(true);
+  // Tab 1 Handlers (Group Evaluation Weights & Period Weights)
+  const handleOpenGroupWeights = () => {
+    if (group?.evaluationWeights && group.evaluationWeights.length > 0) {
+      setEditingGroupWeights(group.evaluationWeights.map((w) => ({
+        id: w.id,
+        name: w.name,
+        percentage: w.percentage,
+        category: w.category || 'ACTIVIDAD',
+      })));
+    } else {
+      setEditingGroupWeights([
+        { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
+        { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
+        { name: 'Asistencia', percentage: 20, category: 'ASISTENCIA' },
+      ]);
+    }
+    setGroupWeightsModalOpen(true);
   };
 
-  const handleSaveWeights = async () => {
-    if (!editingPeriod) return;
+  const handleSaveGroupWeights = async () => {
+    const total = editingGroupWeights.reduce((s, w) => s + (parseFloat(w.percentage) || 0), 0);
+    if (Math.round(total) !== 100) {
+      setSnack(`Las ponderaciones deben sumar 100%. Actualmente suman ${total}%.`);
+      return;
+    }
+    for (const w of editingGroupWeights) {
+      if (!w.name || !w.name.trim()) {
+        setSnack('Todas las ponderaciones deben tener un nombre.');
+        return;
+      }
+    }
     try {
-      await api.put(`/teacher/groups/${id}/periods/${editingPeriod.id}/weights`, {
-        name: editingPeriodName.trim() || editingPeriod.name,
-        examWeight,
-        activityWeight,
-        attendanceWeight,
-        conductWeight,
-        targetScale: 10.0,
+      await api.put(`/teacher/groups/${id}/weights`, {
+        weights: editingGroupWeights.map((w) => ({
+          name: w.name.trim(),
+          percentage: parseFloat(w.percentage) || 0,
+          category: w.category || 'ACTIVIDAD',
+        })),
       });
-      setWeightsModalOpen(false);
-      setSnack('Período y ponderaciones guardados con éxito.');
+      setGroupWeightsModalOpen(false);
+      setSnack('Ponderaciones del grupo guardadas con éxito.');
       fetchGroupDetails();
+      if (selectedPeriodId) fetchGradebook(selectedPeriodId);
     } catch (err) {
-      setSnack('Error al guardar ponderaciones.');
+      setSnack(err.response?.data?.error || 'Error al guardar ponderaciones.');
+    }
+  };
+
+  const handleOpenPeriodWeights = () => {
+    if (group?.periods && group.periods.length > 0) {
+      setEditingPeriodWeights(group.periods.map((p) => ({
+        id: p.id,
+        name: p.name,
+        periodWeight: p.periodWeight !== undefined && p.periodWeight !== null ? p.periodWeight : 100,
+      })));
+    }
+    setPeriodWeightsModalOpen(true);
+  };
+
+  const handleSavePeriodWeights = async () => {
+    const total = editingPeriodWeights.reduce((s, p) => s + (parseFloat(p.periodWeight) || 0), 0);
+    if (Math.round(total) !== 100) {
+      setSnack(`Los valores de los bloques deben sumar 100%. Actualmente suman ${total}%.`);
+      return;
+    }
+    try {
+      await api.put(`/teacher/groups/${id}/periods-weights`, {
+        periods: editingPeriodWeights.map((p) => ({
+          id: p.id,
+          periodWeight: parseFloat(p.periodWeight) || 0,
+        })),
+      });
+      setPeriodWeightsModalOpen(false);
+      setSnack('Valores de los bloques guardados con éxito.');
+      fetchGroupDetails();
+      if (gradebookViewMode === 'annual') fetchAnnualGradebook();
+    } catch (err) {
+      setSnack(err.response?.data?.error || 'Error al guardar valores de los bloques.');
     }
   };
 
@@ -364,9 +431,6 @@ export default function TeacherGroupDetailPage() {
     try {
       await api.put(`/teacher/groups/${id}/periods/${periodId}/weights`, {
         isCurrent: true,
-        examWeight: 40,
-        activityWeight: 40,
-        attendanceWeight: 20,
       });
       setSelectedPeriodId(periodId);
       setSnack('Período marcado como activo.');
@@ -413,6 +477,7 @@ export default function TeacherGroupDetailPage() {
     try {
       await api.post(`/teacher/groups/${id}/activities`, {
         academicPeriodId: selectedPeriodId,
+        evaluationWeightId: actEvaluationWeightId || null,
         title: actTitle.trim(),
         type: actType,
         maxPoints: parseFloat(actMaxPoints) || 10,
@@ -421,6 +486,7 @@ export default function TeacherGroupDetailPage() {
       });
       setActivityModalOpen(false);
       setActTitle('');
+      setActEvaluationWeightId('');
       setSnack('Actividad creada con éxito.');
       fetchActivities(selectedPeriodId);
     } catch (err) {
@@ -661,55 +727,163 @@ export default function TeacherGroupDetailPage() {
       )}
 
       {/* =========================================================================
-          TAB 1: PERIODS & WEIGHTS
+          TAB 1: GROUP EVALUATION WEIGHTS & PERIOD WEIGHTS
          ========================================================================= */}
       {currentTab === 1 && (
         <Grid container spacing={3}>
-          {group?.periods?.map((p) => (
-            <Grid item xs={12} sm={6} md={4} key={p.id}>
-              <Card sx={{ borderRadius: '12px', border: p.isCurrent ? '2px solid #2563EB' : '1px solid divider' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>{p.name}</Typography>
-                    {p.isCurrent ? (
-                      <Chip label="Período Activo" color="primary" size="small" sx={{ fontWeight: 700 }} />
-                    ) : (
-                      <Button size="small" onClick={() => handleSetActivePeriod(p.id)}>Activar</Button>
-                    )}
+          {/* Card A: Group Evaluation Weights */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ borderRadius: '12px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Ponderaciones del Grupo</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Se aplican exactamente igual a cada bloque/período evaluado.
+                    </Typography>
                   </Box>
+                  <Tooltip title="Editar Ponderaciones">
+                    <IconButton color="primary" onClick={handleOpenGroupWeights}>
+                      <WeightsIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
 
-                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                    Ponderación de Calificación (Suma: {p.examWeight + p.activityWeight + p.attendanceWeight}%)
-                  </Typography>
+                <Divider sx={{ mb: 2 }} />
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">Exámenes:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{p.examWeight}%</Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                  {(group?.evaluationWeights || []).map((ew) => (
+                    <Box
+                      key={ew.id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        p: 1.5,
+                        borderRadius: '8px',
+                        bgcolor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{ew.name}</Typography>
+                        <Chip
+                          label={
+                            ew.category === 'EXAMEN'
+                              ? 'Exámenes en línea'
+                              : ew.category === 'ASISTENCIA'
+                              ? 'Pase de Asistencia'
+                              : 'Tareas y Trabajos'
+                          }
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontSize: '0.7rem', height: 20, mt: 0.5 }}
+                        />
+                      </Box>
+                      <Typography variant="h6" sx={{ fontWeight: 900, color: 'primary.main' }}>
+                        {ew.percentage}%
+                      </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">Tareas y Actividades:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{p.activityWeight}%</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">Asistencia:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{p.attendanceWeight}%</Typography>
-                    </Box>
+                  ))}
+                  {(!group?.evaluationWeights || group.evaluationWeights.length === 0) && (
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Ponderación predeterminada activa: Exámenes (40%), Tareas (40%), Asistencia (20%).
+                    </Typography>
+                  )}
+                </Box>
+
+                <Alert severity="info" sx={{ mb: 2, fontSize: '0.85rem' }}>
+                  Total de ponderaciones: <strong>{group?.evaluationWeights?.reduce((acc, w) => acc + w.percentage, 0) || 100}%</strong>
+                </Alert>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<WeightsIcon />}
+                  onClick={handleOpenGroupWeights}
+                  sx={{ fontWeight: 700, mt: 'auto' }}
+                >
+                  Editar Ponderaciones del Grupo
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Card B: Block / Period Weights towards Final Grade */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ borderRadius: '12px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Valor de cada Bloque en la Calificación Final</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Los bloques pueden valer más o menos de la calificación final del curso.
+                    </Typography>
                   </Box>
+                  <Tooltip title="Ajustar Valores">
+                    <IconButton color="primary" onClick={handleOpenPeriodWeights}>
+                      <WeightsIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
 
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<WeightsIcon />}
-                    onClick={() => handleOpenWeights(p)}
-                    sx={{ fontWeight: 700 }}
-                  >
-                    Ajustar Ponderaciones
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                <Divider sx={{ mb: 2 }} />
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+                  {(group?.periods || []).map((p) => (
+                    <Box
+                      key={p.id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        p: 1.5,
+                        borderRadius: '8px',
+                        border: p.isCurrent ? '2px solid #2563EB' : '1px solid',
+                        borderColor: p.isCurrent ? '#2563EB' : 'divider',
+                        bgcolor: p.isCurrent ? (isDark ? 'rgba(37,99,235,0.08)' : '#eff6ff') : 'transparent',
+                      }}
+                    >
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{p.name}</Typography>
+                          {p.isCurrent ? (
+                            <Chip label="Activo" color="primary" size="small" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 700 }} />
+                          ) : (
+                            <Button size="small" sx={{ py: 0, fontSize: '0.72rem' }} onClick={() => handleSetActivePeriod(p.id)}>
+                              Activar
+                            </Button>
+                          )}
+                        </Box>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          Período #{p.periodNumber}
+                        </Typography>
+                      </Box>
+
+                      <Typography variant="h6" sx={{ fontWeight: 900, color: 'secondary.main' }}>
+                        {p.periodWeight !== undefined && p.periodWeight !== null ? p.periodWeight : 100}%
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+
+                <Alert severity="info" sx={{ mb: 2, fontSize: '0.85rem' }}>
+                  Suma del valor de los bloques: <strong>{group?.periods?.reduce((acc, p) => acc + (p.periodWeight || 0), 0) || 100}%</strong>
+                </Alert>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<WeightsIcon />}
+                  onClick={handleOpenPeriodWeights}
+                  sx={{ fontWeight: 700, mt: 'auto' }}
+                >
+                  Ajustar Valor de los Bloques (%)
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
       )}
 
@@ -958,34 +1132,145 @@ export default function TeacherGroupDetailPage() {
       )}
 
       {/* =========================================================================
-          TAB 5: CONSOLIDATED GRADEBOOK
+          TAB 5: CONSOLIDATED GRADEBOOK (PERIOD VS ANNUAL)
          ========================================================================= */}
       {currentTab === 5 && (
         <Card sx={{ borderRadius: '12px' }}>
           <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  Sábana Consolidada: {selectedPeriod?.name}
+                  {gradebookViewMode === 'annual'
+                    ? 'Concentrado Anual / Final del Curso'
+                    : `Sábana Consolidada: ${selectedPeriod?.name}`}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Cálculo automático: Exámenes ({selectedPeriod?.examWeight}%) + Actividades ({selectedPeriod?.activityWeight}%) + Asistencia ({selectedPeriod?.attendanceWeight}%) + Puntos Extra.
+                  {gradebookViewMode === 'annual'
+                    ? 'Ponderación de cada bloque para la calificación final del ciclo escolar.'
+                    : 'Cálculo por bloque: Ponderaciones del grupo aplicadas a exámenes, actividades y asistencia.'}
                 </Typography>
               </Box>
 
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => fetchGradebook(selectedPeriodId)}
-              >
-                Recalcular Sábana
-              </Button>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <ToggleButtonGroup
+                  value={gradebookViewMode}
+                  exclusive
+                  onChange={(_, newMode) => {
+                    if (newMode) setGradebookViewMode(newMode);
+                  }}
+                  size="small"
+                >
+                  <ToggleButton value="period" sx={{ fontWeight: 700, px: 2 }}>
+                    Bloque ({selectedPeriod?.name || 'Actual'})
+                  </ToggleButton>
+                  <ToggleButton value="annual" sx={{ fontWeight: 700, px: 2 }}>
+                    Concentrado Anual / Final
+                  </ToggleButton>
+                </ToggleButtonGroup>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={() => {
+                    if (gradebookViewMode === 'annual') {
+                      fetchAnnualGradebook();
+                    } else if (selectedPeriodId) {
+                      fetchGradebook(selectedPeriodId);
+                    }
+                  }}
+                >
+                  Recalcular
+                </Button>
+              </Box>
             </Box>
 
             {gradebookLoading ? (
               <Box sx={{ p: 6, textAlign: 'center' }}>
                 <CircularProgress />
               </Box>
+            ) : gradebookViewMode === 'annual' ? (
+              !annualGradebook || !annualGradebook.rows || annualGradebook.rows.length === 0 ? (
+                <Box sx={{ p: 6, textAlign: 'center' }}>
+                  <Typography variant="body1">No hay alumnos o períodos registrados para generar el concentrado anual.</Typography>
+                </Box>
+              ) : (
+                <>
+                  {/* Annual Stats Row */}
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={4}>
+                      <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: '10px' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                          {annualGradebook.groupAverage}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Promedio General del Curso</Typography>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: '10px' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 800, color: 'success.main' }}>
+                          {annualGradebook.approvedCount}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Aprobados (≥ 6.0)</Typography>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: '10px' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 800, color: 'error.main' }}>
+                          {annualGradebook.failedCount}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Reprobados</Typography>
+                      </Card>
+                    </Grid>
+                  </Grid>
+
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '10px' }}>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: isDark ? '#1E2945' : '#f8fafc' }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 800, width: 40 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 800 }}>Alumno</TableCell>
+                          {(annualGradebook.periods || []).map((p) => (
+                            <TableCell key={p.periodId} align="center" sx={{ fontWeight: 700 }}>
+                              {p.name} ({p.periodWeight}%)
+                            </TableCell>
+                          ))}
+                          <TableCell align="center" sx={{ fontWeight: 900 }}>Calificación Anual Ponderada</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700 }}>Estatus</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {annualGradebook.rows.map((row, idx) => (
+                          <TableRow key={row.studentId} hover>
+                            <TableCell sx={{ fontWeight: 700 }}>{row.listNumber || idx + 1}</TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>{row.studentName}</TableCell>
+                            {(annualGradebook.periods || []).map((p) => {
+                              const grade = row.periodGrades?.[p.periodId];
+                              return (
+                                <TableCell key={p.periodId} align="center" sx={{ fontWeight: 600 }}>
+                                  {grade !== undefined && grade !== null ? grade : '—'}
+                                </TableCell>
+                              );
+                            })}
+                            <TableCell align="center">
+                              <Typography variant="body1" sx={{ fontWeight: 900, color: row.isApproved ? 'success.main' : 'error.main' }}>
+                                {row.finalAnnualGrade}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={row.isApproved ? 'Aprobado' : 'Reprobado'}
+                                color={row.isApproved ? 'success' : 'error'}
+                                size="small"
+                                sx={{ fontWeight: 700 }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )
             ) : !gradebook || !gradebook.rows || gradebook.rows.length === 0 ? (
               <Box sx={{ p: 6, textAlign: 'center' }}>
                 <Typography variant="body1">No hay alumnos o registros para este período.</Typography>
@@ -1030,7 +1315,7 @@ export default function TeacherGroupDetailPage() {
                         <TableCell align="center" sx={{ fontWeight: 700 }}>Actividades ({gradebook.activityWeight}%)</TableCell>
                         <TableCell align="center" sx={{ fontWeight: 700 }}>Asistencia ({gradebook.attendanceWeight}%)</TableCell>
                         <TableCell align="center" sx={{ fontWeight: 700 }}>Extra / Penaliz.</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 800 }}>Calificación Final</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 800 }}>Calificación del Bloque</TableCell>
                         <TableCell align="center" sx={{ fontWeight: 700 }}>Estatus</TableCell>
                       </TableRow>
                     </TableHead>
@@ -1212,47 +1497,154 @@ export default function TeacherGroupDetailPage() {
         </form>
       </Dialog>
 
-      {/* Adjust Weights Modal */}
-      <Dialog open={weightsModalOpen} onClose={() => setWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>Configuración de Período y Ponderaciones</DialogTitle>
+      {/* Group Evaluation Weights Modal */}
+      <Dialog open={groupWeightsModalOpen} onClose={() => setGroupWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Ponderaciones del Grupo</DialogTitle>
         <DialogContent dividers>
-          <TextField
-            label="Nombre del Período"
-            fullWidth
-            size="small"
-            value={editingPeriodName}
-            onChange={(e) => setEditingPeriodName(e.target.value)}
-            sx={{ mb: 2.5 }}
-            placeholder="Ej: Primer Parcial, Unidad 1, Período 1..."
-            helperText="Personaliza el nombre libremente (sin etiquetas fijas)"
-          />
-
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-            Define qué porcentaje de la calificación final del período representa cada aspecto. La suma debe dar 100%.
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            Estas ponderaciones se aplican a <strong>todos los bloques</strong> del grupo. Puedes definir qué aspectos evaluar (ej. Exámenes, Tareas, Libreta, Asistencia) y su porcentaje. Deben sumar 100%.
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Exámenes: {examWeight}%</Typography>
-            <Slider value={examWeight} onChange={(_, v) => setExamWeight(v)} min={0} max={100} step={5} valueLabelDisplay="auto" />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 1.5 }}>
+            {editingGroupWeights.map((ew, idx) => (
+              <Grid container spacing={1.5} alignItems="center" key={idx}>
+                <Grid item xs={5}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="Nombre"
+                    value={ew.name}
+                    onChange={(e) => {
+                      const updated = [...editingGroupWeights];
+                      updated[idx].name = e.target.value;
+                      setEditingGroupWeights(updated);
+                    }}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={3.5}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Categoría</InputLabel>
+                    <Select
+                      value={ew.category || 'ACTIVIDAD'}
+                      label="Categoría"
+                      onChange={(e) => {
+                        const updated = [...editingGroupWeights];
+                        updated[idx].category = e.target.value;
+                        setEditingGroupWeights(updated);
+                      }}
+                    >
+                      <MenuItem value="EXAMEN">Exámenes</MenuItem>
+                      <MenuItem value="ACTIVIDAD">Actividades</MenuItem>
+                      <MenuItem value="ASISTENCIA">Asistencia</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={2.5}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="%"
+                    type="number"
+                    inputProps={{ min: 1, max: 100 }}
+                    value={ew.percentage}
+                    onChange={(e) => {
+                      const updated = [...editingGroupWeights];
+                      updated[idx].percentage = parseFloat(e.target.value) || 0;
+                      setEditingGroupWeights(updated);
+                    }}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={1} sx={{ textAlign: 'center' }}>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    disabled={editingGroupWeights.length <= 1}
+                    onClick={() => {
+                      setEditingGroupWeights(editingGroupWeights.filter((_, i) => i !== idx));
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Grid>
+              </Grid>
+            ))}
           </Box>
 
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Tareas y Actividades: {activityWeight}%</Typography>
-            <Slider value={activityWeight} onChange={(_, v) => setActivityWeight(v)} min={0} max={100} step={5} valueLabelDisplay="auto" />
-          </Box>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditingGroupWeights([
+                ...editingGroupWeights,
+                { name: '', percentage: 10, category: 'ACTIVIDAD' },
+              ]);
+            }}
+            sx={{ fontWeight: 700, mt: 1, mb: 2 }}
+          >
+            Agregar Ponderación
+          </Button>
 
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Asistencia: {attendanceWeight}%</Typography>
-            <Slider value={attendanceWeight} onChange={(_, v) => setAttendanceWeight(v)} min={0} max={100} step={5} valueLabelDisplay="auto" />
-          </Box>
-
-          <Alert severity={examWeight + activityWeight + attendanceWeight === 100 ? 'success' : 'warning'}>
-            Suma total: <strong>{examWeight + activityWeight + attendanceWeight}%</strong>
-          </Alert>
+          {(() => {
+            const sum = editingGroupWeights.reduce((s, w) => s + (parseFloat(w.percentage) || 0), 0);
+            return (
+              <Alert severity={Math.round(sum) === 100 ? 'success' : 'warning'}>
+                Suma total: <strong>{sum}%</strong> {Math.round(sum) === 100 ? '✓ (Correcto)' : '(Debe sumar 100%)'}
+              </Alert>
+            );
+          })()}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setWeightsModalOpen(false)} color="inherit">Cancelar</Button>
-          <Button variant="contained" onClick={handleSaveWeights}>Guardar Cambios</Button>
+          <Button onClick={() => setGroupWeightsModalOpen(false)} color="inherit">Cancelar</Button>
+          <Button variant="contained" onClick={handleSaveGroupWeights}>Guardar Ponderaciones</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Period Weights Modal (Valor de cada bloque en la calificación total) */}
+      <Dialog open={periodWeightsModalOpen} onClose={() => setPeriodWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Valor de cada Bloque en la Calificación Final</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            Define qué porcentaje de la calificación total del curso / año representa cada bloque (ej. 30%, 30%, 40%). Deben sumar 100%.
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, my: 1.5 }}>
+            {editingPeriodWeights.map((pw, idx) => (
+              <Box key={pw.id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, minWidth: 140 }}>
+                  {pw.name}:
+                </Typography>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Valor en Calificación Final (%)"
+                  type="number"
+                  inputProps={{ min: 0, max: 100, step: 0.5 }}
+                  value={pw.periodWeight !== undefined && pw.periodWeight !== null ? pw.periodWeight : ''}
+                  onChange={(e) => {
+                    const updated = [...editingPeriodWeights];
+                    updated[idx].periodWeight = parseFloat(e.target.value) || 0;
+                    setEditingPeriodWeights(updated);
+                  }}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          {(() => {
+            const sum = editingPeriodWeights.reduce((s, p) => s + (parseFloat(p.periodWeight) || 0), 0);
+            return (
+              <Alert severity={Math.round(sum) === 100 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+                Suma total: <strong>{sum}%</strong> {Math.round(sum) === 100 ? '✓ (Correcto)' : '(Debe sumar 100%)'}
+              </Alert>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPeriodWeightsModalOpen(false)} color="inherit">Cancelar</Button>
+          <Button variant="contained" onClick={handleSavePeriodWeights}>Guardar Valores</Button>
         </DialogActions>
       </Dialog>
 
@@ -1294,6 +1686,25 @@ export default function TeacherGroupDetailPage() {
                   onChange={(e) => setActMaxPoints(e.target.value)}
                 />
               </Grid>
+              {group?.evaluationWeights && group.evaluationWeights.length > 0 && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Asignar a Ponderación del Grupo</InputLabel>
+                    <Select
+                      value={actEvaluationWeightId}
+                      label="Asignar a Ponderación del Grupo"
+                      onChange={(e) => setActEvaluationWeightId(e.target.value)}
+                    >
+                      <MenuItem value="">Automático (Según el tipo de actividad)</MenuItem>
+                      {group.evaluationWeights.map((ew) => (
+                        <MenuItem key={ew.id} value={ew.id}>
+                          {ew.name} ({ew.percentage}%) - {ew.category}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <TextField
                   label="Fecha de Entrega"

@@ -19,15 +19,10 @@ public class UpdatePeriodWeightsRequest {
     private LocalDate endDate;
     private Boolean isCurrent;
 
-    @NotNull(message = "El peso del examen es obligatorio")
+    private Double periodWeight; // Peso del bloque en la calificación final anual
     private Double examWeight;
-
-    @NotNull(message = "El peso de actividades es obligatorio")
     private Double activityWeight;
-
-    @NotNull(message = "El peso de asistencia es obligatorio")
     private Double attendanceWeight;
-
     private Double conductWeight;
     private Double targetScale;
 }

@@ -37,6 +37,10 @@ public class AcademicActivity {
     @JsonIgnore
     private AcademicPeriod academicPeriod;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "evaluation_weight_id")
+    private GroupEvaluationWeight evaluationWeight;
+
     @Column(nullable = false, length = 150)
     private String title;
 

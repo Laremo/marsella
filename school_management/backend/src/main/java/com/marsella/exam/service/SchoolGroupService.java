@@ -3,12 +3,11 @@ package com.marsella.exam.service;
 import com.marsella.exam.dto.AcademicPeriodDto;
 import com.marsella.exam.dto.SchoolGroupRequest;
 import com.marsella.exam.dto.SchoolGroupResponse;
+import com.marsella.exam.dto.GroupEvaluationWeightDto;
 import com.marsella.exam.dto.UpdatePeriodWeightsRequest;
-import com.marsella.exam.model.AcademicPeriod;
-import com.marsella.exam.model.PeriodType;
-import com.marsella.exam.model.SchoolGroup;
-import com.marsella.exam.model.User;
+import com.marsella.exam.model.*;
 import com.marsella.exam.repository.AcademicPeriodRepository;
+import com.marsella.exam.repository.GroupEvaluationWeightRepository;
 import com.marsella.exam.repository.SchoolGroupRepository;
 import com.marsella.exam.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
@@ -62,9 +62,33 @@ public class SchoolGroupService {
                 .description(request.getDescription())
                 .build();
 
-        // Generate periods
+        // Group evaluation weights (apply equally to all blocks)
+        List<GroupEvaluationWeight> evalWeights = new ArrayList<>();
+        if (request.getEvaluationWeights() != null && !request.getEvaluationWeights().isEmpty()) {
+            for (GroupEvaluationWeightDto wDto : request.getEvaluationWeights()) {
+                if (wDto.getName() != null && !wDto.getName().trim().isBlank()) {
+                    evalWeights.add(GroupEvaluationWeight.builder()
+                            .schoolGroup(group)
+                            .name(wDto.getName().trim())
+                            .percentage(wDto.getPercentage() != null ? wDto.getPercentage() : 0.0)
+                            .category(wDto.getCategory() != null ? wDto.getCategory() : EvaluationCategory.ACTIVIDAD)
+                            .build());
+                }
+            }
+        } else {
+            // Default initial weights if not customized
+            evalWeights.add(GroupEvaluationWeight.builder().schoolGroup(group).name("Exámenes").percentage(40.0).category(EvaluationCategory.EXAMEN).build());
+            evalWeights.add(GroupEvaluationWeight.builder().schoolGroup(group).name("Tareas y Actividades").percentage(40.0).category(EvaluationCategory.ACTIVIDAD).build());
+            evalWeights.add(GroupEvaluationWeight.builder().schoolGroup(group).name("Asistencia").percentage(20.0).category(EvaluationCategory.ASISTENCIA).build());
+        }
+        group.setEvaluationWeights(evalWeights);
+
+        // Generate periods with weights towards final grade
         List<AcademicPeriod> periods = new ArrayList<>();
         List<String> customNames = request.getPeriodNames();
+        List<Double> pWeights = request.getPeriodWeights();
+        double defaultPWeight = Math.round((100.0 / totalPeriods) * 10.0) / 10.0;
+
         for (int i = 1; i <= totalPeriods; i++) {
             String periodName;
             if (customNames != null && customNames.size() >= i && customNames.get(i - 1) != null && !customNames.get(i - 1).isBlank()) {
@@ -73,11 +97,19 @@ public class SchoolGroupService {
                 periodName = "Período " + i;
             }
 
+            double periodWeight;
+            if (pWeights != null && pWeights.size() >= i && pWeights.get(i - 1) != null) {
+                periodWeight = pWeights.get(i - 1);
+            } else {
+                periodWeight = (i == totalPeriods) ? (100.0 - defaultPWeight * (totalPeriods - 1)) : defaultPWeight;
+            }
+
             AcademicPeriod period = AcademicPeriod.builder()
                     .schoolGroup(group)
                     .periodNumber(i)
                     .name(periodName)
                     .isCurrent(i == 1) // First period is active by default
+                    .periodWeight(periodWeight)
                     .examWeight(40.0)
                     .activityWeight(40.0)
                     .attendanceWeight(20.0)
@@ -143,9 +175,10 @@ public class SchoolGroupService {
             period.setIsCurrent(request.getIsCurrent());
         }
 
-        period.setExamWeight(request.getExamWeight());
-        period.setActivityWeight(request.getActivityWeight());
-        period.setAttendanceWeight(request.getAttendanceWeight());
+        if (request.getPeriodWeight() != null) period.setPeriodWeight(request.getPeriodWeight());
+        if (request.getExamWeight() != null) period.setExamWeight(request.getExamWeight());
+        if (request.getActivityWeight() != null) period.setActivityWeight(request.getActivityWeight());
+        if (request.getAttendanceWeight() != null) period.setAttendanceWeight(request.getAttendanceWeight());
         if (request.getConductWeight() != null) period.setConductWeight(request.getConductWeight());
         if (request.getTargetScale() != null) period.setTargetScale(request.getTargetScale());
 
@@ -153,22 +186,56 @@ public class SchoolGroupService {
         return mapPeriodToDto(saved);
     }
 
-    private String getPeriodPrefix(PeriodType type) {
-        return switch (type) {
-            case BLOQUE -> "Bloque";
-            case TRIMESTRE -> "Trimestre";
-            case BIMESTRE -> "Bimestre";
-            case SEMESTRE -> "Semestre";
-            case CUATRIMESTRE -> "Cuatrimestre";
-            case ANUAL -> "Ciclo Anual";
-            case PERSONALIZADO -> "Etapa";
-        };
+    @Transactional
+    public List<GroupEvaluationWeightDto> updateGroupEvaluationWeights(Long teacherId, Long groupId, List<GroupEvaluationWeightDto> weights) {
+        SchoolGroup group = groupRepository.findByIdAndTeacherIdWithPeriods(groupId, teacherId)
+                .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
+
+        group.getEvaluationWeights().clear();
+        if (weights != null) {
+            for (GroupEvaluationWeightDto w : weights) {
+                if (w.getName() != null && !w.getName().trim().isBlank()) {
+                    group.getEvaluationWeights().add(GroupEvaluationWeight.builder()
+                            .schoolGroup(group)
+                            .name(w.getName().trim())
+                            .percentage(w.getPercentage() != null ? w.getPercentage() : 0.0)
+                            .category(w.getCategory() != null ? w.getCategory() : EvaluationCategory.ACTIVIDAD)
+                            .build());
+                }
+            }
+        }
+        SchoolGroup saved = groupRepository.save(group);
+        return saved.getEvaluationWeights().stream().map(this::mapWeightToDto).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<AcademicPeriodDto> updatePeriodsWeights(Long teacherId, Long groupId, List<AcademicPeriodDto> periodDtos) {
+        SchoolGroup group = groupRepository.findByIdAndTeacherIdWithPeriods(groupId, teacherId)
+                .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
+
+        Map<Long, AcademicPeriod> periodMap = group.getPeriods().stream()
+                .collect(Collectors.toMap(AcademicPeriod::getId, p -> p));
+
+        for (AcademicPeriodDto dto : periodDtos) {
+            if (dto.getId() != null && periodMap.containsKey(dto.getId())) {
+                AcademicPeriod p = periodMap.get(dto.getId());
+                if (dto.getPeriodWeight() != null) p.setPeriodWeight(dto.getPeriodWeight());
+                if (dto.getName() != null && !dto.getName().trim().isBlank()) p.setName(dto.getName().trim());
+                if (dto.getStartDate() != null) p.setStartDate(dto.getStartDate());
+                if (dto.getEndDate() != null) p.setEndDate(dto.getEndDate());
+                if (dto.getIsCurrent() != null) p.setIsCurrent(dto.getIsCurrent());
+            }
+        }
+        SchoolGroup saved = groupRepository.save(group);
+        return saved.getPeriods().stream().map(this::mapPeriodToDto).collect(Collectors.toList());
     }
 
     public SchoolGroupResponse mapToResponse(SchoolGroup group) {
         int studentCount = (int) studentRepository.countBySchoolGroupId(group.getId());
         List<AcademicPeriodDto> periodDtos = (group.getPeriods() != null ? group.getPeriods() : new ArrayList<AcademicPeriod>())
                 .stream().map(this::mapPeriodToDto).collect(Collectors.toList());
+        List<GroupEvaluationWeightDto> weightDtos = (group.getEvaluationWeights() != null ? group.getEvaluationWeights() : new ArrayList<GroupEvaluationWeight>())
+                .stream().map(this::mapWeightToDto).collect(Collectors.toList());
 
         return SchoolGroupResponse.builder()
                 .id(group.getId())
@@ -183,6 +250,7 @@ public class SchoolGroupService {
                 .description(group.getDescription())
                 .studentCount(studentCount)
                 .periods(periodDtos)
+                .evaluationWeights(weightDtos)
                 .createdAt(group.getCreatedAt())
                 .build();
     }
@@ -195,11 +263,21 @@ public class SchoolGroupService {
                 .startDate(p.getStartDate())
                 .endDate(p.getEndDate())
                 .isCurrent(p.getIsCurrent())
+                .periodWeight(p.getPeriodWeight())
                 .examWeight(p.getExamWeight())
                 .activityWeight(p.getActivityWeight())
                 .attendanceWeight(p.getAttendanceWeight())
                 .conductWeight(p.getConductWeight())
                 .targetScale(p.getTargetScale())
+                .build();
+    }
+
+    public GroupEvaluationWeightDto mapWeightToDto(GroupEvaluationWeight w) {
+        return GroupEvaluationWeightDto.builder()
+                .id(w.getId())
+                .name(w.getName())
+                .percentage(w.getPercentage())
+                .category(w.getCategory())
                 .build();
     }
 }

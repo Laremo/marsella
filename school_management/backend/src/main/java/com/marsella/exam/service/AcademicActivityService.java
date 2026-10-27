@@ -1,6 +1,7 @@
 package com.marsella.exam.service;
 
 import com.marsella.exam.dto.ActivityDto.*;
+import com.marsella.exam.dto.AnnualGradebookDto;
 import com.marsella.exam.dto.ConsolidatedGradebookDto;
 import com.marsella.exam.dto.ConsolidatedGradebookDto.StudentGradeRow;
 import com.marsella.exam.model.*;
@@ -27,6 +28,7 @@ public class AcademicActivityService {
     private final StudentSubmissionRepository submissionRepository;
     private final AttendanceRecordRepository attendanceRepository;
     private final StudentIncidentRepository incidentRepository;
+    private final GroupEvaluationWeightRepository evalWeightRepository;
 
     @Transactional(readOnly = true)
     public List<ActivityResponse> getGroupActivities(Long teacherId, Long groupId, Long periodId) {
@@ -51,9 +53,15 @@ public class AcademicActivityService {
         AcademicPeriod period = periodRepository.findByIdAndSchoolGroupId(request.getAcademicPeriodId(), group.getId())
                 .orElseThrow(() -> new NoSuchElementException("Período no encontrado"));
 
+        GroupEvaluationWeight evalWeight = null;
+        if (request.getEvaluationWeightId() != null) {
+            evalWeight = evalWeightRepository.findById(request.getEvaluationWeightId()).orElse(null);
+        }
+
         AcademicActivity activity = AcademicActivity.builder()
                 .schoolGroup(group)
                 .academicPeriod(period)
+                .evaluationWeight(evalWeight)
                 .title(request.getTitle().trim())
                 .description(request.getDescription())
                 .type(request.getType() != null ? request.getType() : ActivityType.TAREA)
@@ -206,9 +214,27 @@ public class AcademicActivityService {
         Map<Long, List<StudentIncident>> incLookup = incidents.stream()
                 .collect(Collectors.groupingBy(i -> i.getStudent().getId()));
 
-        double examWeight = period.getExamWeight() != null ? period.getExamWeight() : 40.0;
-        double actWeight = period.getActivityWeight() != null ? period.getActivityWeight() : 40.0;
-        double attWeight = period.getAttendanceWeight() != null ? period.getAttendanceWeight() : 20.0;
+        // Group evaluation weights (applied equally to every block)
+        List<GroupEvaluationWeight> groupWeights = evalWeightRepository.findBySchoolGroupIdOrderByIdAsc(group.getId());
+        double examWeight = 40.0;
+        double actWeight = 40.0;
+        double attWeight = 20.0;
+
+        if (groupWeights != null && !groupWeights.isEmpty()) {
+            double eSum = groupWeights.stream().filter(w -> w.getCategory() == EvaluationCategory.EXAMEN).mapToDouble(GroupEvaluationWeight::getPercentage).sum();
+            double aSum = groupWeights.stream().filter(w -> w.getCategory() == EvaluationCategory.ACTIVIDAD).mapToDouble(GroupEvaluationWeight::getPercentage).sum();
+            double attSum = groupWeights.stream().filter(w -> w.getCategory() == EvaluationCategory.ASISTENCIA).mapToDouble(GroupEvaluationWeight::getPercentage).sum();
+            if (eSum + aSum + attSum > 0) {
+                examWeight = eSum;
+                actWeight = aSum;
+                attWeight = attSum;
+            }
+        } else if (period.getExamWeight() != null) {
+            examWeight = period.getExamWeight();
+            actWeight = period.getActivityWeight() != null ? period.getActivityWeight() : 40.0;
+            attWeight = period.getAttendanceWeight() != null ? period.getAttendanceWeight() : 20.0;
+        }
+
         double targetScale = period.getTargetScale() != null ? period.getTargetScale() : 10.0; // scale 10.0 or 100.0
 
         List<StudentGradeRow> rows = new ArrayList<>();
@@ -340,8 +366,96 @@ public class AcademicActivityService {
                 .maxPoints(act.getMaxPoints())
                 .dueDate(act.getDueDate())
                 .isExtraPoints(act.getIsExtraPoints())
+                .evaluationWeightId(act.getEvaluationWeight() != null ? act.getEvaluationWeight().getId() : null)
+                .evaluationWeightName(act.getEvaluationWeight() != null ? act.getEvaluationWeight().getName() : null)
                 .gradedCount(count)
                 .createdAt(act.getCreatedAt())
+                .build();
+    }
+
+    /**
+     * Compute course-wide annual gradebook, weighting each period/block by its periodWeight.
+     */
+    @Transactional(readOnly = true)
+    public AnnualGradebookDto getAnnualGradebook(Long teacherId, Long groupId) {
+        SchoolGroup group = groupRepository.findByIdAndTeacherIdWithPeriods(groupId, teacherId)
+                .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
+
+        List<Student> students = studentRepository.findBySchoolGroupIdOrderByFullNameAsc(group.getId());
+        List<AcademicPeriod> periods = group.getPeriods();
+
+        // Calculate consolidated gradebook for each period
+        Map<Long, ConsolidatedGradebookDto> periodGradebooks = new HashMap<>();
+        for (AcademicPeriod p : periods) {
+            periodGradebooks.put(p.getId(), getConsolidatedGradebook(teacherId, groupId, p.getId()));
+        }
+
+        List<AnnualGradebookDto.PeriodColumnInfo> periodColumns = periods.stream()
+                .map(p -> AnnualGradebookDto.PeriodColumnInfo.builder()
+                        .periodId(p.getId())
+                        .name(p.getName())
+                        .periodNumber(p.getPeriodNumber())
+                        .periodWeight(p.getPeriodWeight() != null ? p.getPeriodWeight() : (100.0 / Math.max(1, periods.size())))
+                        .build())
+                .collect(Collectors.toList());
+
+        List<AnnualGradebookDto.AnnualStudentRow> rows = new ArrayList<>();
+        double sumAnnual = 0.0;
+        int approved = 0;
+        int failed = 0;
+
+        for (Student student : students) {
+            Map<Long, Double> periodGrades = new HashMap<>();
+            double weightedAnnualSum = 0.0;
+            double totalWeightSum = 0.0;
+
+            for (AcademicPeriod p : periods) {
+                ConsolidatedGradebookDto gb = periodGradebooks.get(p.getId());
+                double grade = 0.0;
+                if (gb != null && gb.getRows() != null) {
+                    for (StudentGradeRow row : gb.getRows()) {
+                        if (row.getStudentId().equals(student.getId())) {
+                            grade = row.getFinalGrade();
+                            break;
+                        }
+                    }
+                }
+                periodGrades.put(p.getId(), grade);
+                double pWeight = p.getPeriodWeight() != null ? p.getPeriodWeight() : (100.0 / Math.max(1, periods.size()));
+                weightedAnnualSum += (grade * (pWeight / 100.0));
+                totalWeightSum += pWeight;
+            }
+
+            double finalAnnualGrade = totalWeightSum > 0 ? (weightedAnnualSum / (totalWeightSum / 100.0)) : 0.0;
+            finalAnnualGrade = Math.round(finalAnnualGrade * 100.0) / 100.0;
+            boolean isApproved = finalAnnualGrade >= 6.0;
+
+            if (isApproved) approved++; else failed++;
+            sumAnnual += finalAnnualGrade;
+
+            rows.add(AnnualGradebookDto.AnnualStudentRow.builder()
+                    .studentId(student.getId())
+                    .studentName(student.getFullName())
+                    .listNumber(student.getListNumber())
+                    .periodGrades(periodGrades)
+                    .finalAnnualGrade(finalAnnualGrade)
+                    .isApproved(isApproved)
+                    .build());
+        }
+
+        double groupAverage = !students.isEmpty() ? Math.round((sumAnnual / students.size()) * 10.0) / 10.0 : 0.0;
+
+        return AnnualGradebookDto.builder()
+                .schoolGroupId(group.getId())
+                .groupName(group.getName())
+                .grade(group.getGrade())
+                .subject(group.getSubject())
+                .schoolYear(group.getSchoolYear())
+                .periods(periodColumns)
+                .rows(rows)
+                .groupAverage(groupAverage)
+                .approvedCount(approved)
+                .failedCount(failed)
                 .build();
     }
 }

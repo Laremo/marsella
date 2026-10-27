@@ -27,5 +27,6 @@ public class SchoolGroupResponse {
     private String description;
     private int studentCount;
     private List<AcademicPeriodDto> periods;
+    private List<GroupEvaluationWeightDto> evaluationWeights;
     private LocalDateTime createdAt;
 }

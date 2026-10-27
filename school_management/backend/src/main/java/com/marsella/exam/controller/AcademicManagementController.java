@@ -191,4 +191,15 @@ public class AcademicManagementController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         }
     }
+
+    @GetMapping("/annual-gradebook")
+    public ResponseEntity<?> getAnnualGradebook(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long groupId) {
+        try {
+            return ResponseEntity.ok(activityService.getAnnualGradebook(teacher.getId(), groupId));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
 }

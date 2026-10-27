@@ -34,6 +34,7 @@ import {
   ArrowForward as ArrowForwardIcon,
   CalendarMonth as CalendarIcon,
   AutoStories as SubjectIcon,
+  Tune as WeightsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -59,6 +60,12 @@ export default function TeacherGroupsPage() {
   const [schoolYear, setSchoolYear] = useState('2026-2027');
   const [totalPeriods, setTotalPeriods] = useState(3);
   const [periodNames, setPeriodNames] = useState(['', '', '']);
+  const [periodWeights, setPeriodWeights] = useState([33.33, 33.33, 33.34]);
+  const [evaluationWeights, setEvaluationWeights] = useState([
+    { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
+    { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
+    { name: 'Asistencia', percentage: 20, category: 'ASISTENCIA' },
+  ]);
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
@@ -83,6 +90,16 @@ export default function TeacherGroupsPage() {
     fetchGroups();
   }, []);
 
+  const calculateDefaultPeriodWeights = (num) => {
+    const base = Math.floor((100 / num) * 100) / 100;
+    const remainder = Math.round((100 - base * num) * 100) / 100;
+    const weights = [];
+    for (let i = 0; i < num; i++) {
+      weights.push(i === num - 1 ? Math.round((base + remainder) * 100) / 100 : base);
+    }
+    return weights;
+  };
+
   const handleTotalPeriodsChange = (val) => {
     const num = Math.max(1, Math.min(12, parseInt(val, 10) || 1));
     setTotalPeriods(num);
@@ -93,7 +110,39 @@ export default function TeacherGroupsPage() {
       }
       return updated.slice(0, num);
     });
+    setPeriodWeights(calculateDefaultPeriodWeights(num));
   };
+
+  const handlePeriodWeightChange = (index, value) => {
+    const updated = [...periodWeights];
+    updated[index] = parseFloat(value) || 0;
+    setPeriodWeights(updated);
+  };
+
+  const handleAddEvaluationWeight = () => {
+    setEvaluationWeights((prev) => [
+      ...prev,
+      { name: '', percentage: 10, category: 'ACTIVIDAD' },
+    ]);
+  };
+
+  const handleRemoveEvaluationWeight = (index) => {
+    setEvaluationWeights((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEvaluationWeightChange = (index, field, value) => {
+    setEvaluationWeights((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: field === 'percentage' ? parseFloat(value) || 0 : value,
+      };
+      return updated;
+    });
+  };
+
+  const totalEvaluationWeight = evaluationWeights.reduce((sum, w) => sum + (parseFloat(w.percentage) || 0), 0);
+  const totalPeriodWeight = periodWeights.reduce((sum, w) => sum + (parseFloat(w) || 0), 0);
 
   const handleOpenCreate = () => {
     setEditingGroup(null);
@@ -104,6 +153,12 @@ export default function TeacherGroupsPage() {
     setSchoolYear('2026-2027');
     setTotalPeriods(3);
     setPeriodNames(['', '', '']);
+    setPeriodWeights([33.33, 33.33, 33.34]);
+    setEvaluationWeights([
+      { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
+      { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
+      { name: 'Asistencia', percentage: 20, category: 'ASISTENCIA' },
+    ]);
     setDescription('');
     setModalError('');
     setModalOpen(true);
@@ -119,6 +174,21 @@ export default function TeacherGroupsPage() {
     setSchoolYear(group.schoolYear || '2026-2027');
     setTotalPeriods(group.totalPeriods || 3);
     setPeriodNames(group.periods ? group.periods.map((p) => p.name) : []);
+    setPeriodWeights(group.periods ? group.periods.map((p) => p.periodWeight || 100) : [100]);
+    if (group.evaluationWeights && group.evaluationWeights.length > 0) {
+      setEvaluationWeights(group.evaluationWeights.map(w => ({
+        id: w.id,
+        name: w.name,
+        percentage: w.percentage,
+        category: w.category || 'ACTIVIDAD',
+      })));
+    } else {
+      setEvaluationWeights([
+        { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
+        { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
+        { name: 'Asistencia', percentage: 20, category: 'ASISTENCIA' },
+      ]);
+    }
     setDescription(group.description || '');
     setModalError('');
     setModalOpen(true);
@@ -129,6 +199,23 @@ export default function TeacherGroupsPage() {
     if (!name.trim() || !grade.trim()) {
       setModalError('El nombre del grupo y grado son obligatorios.');
       return;
+    }
+
+    if (!editingGroup) {
+      if (Math.round(totalEvaluationWeight) !== 100) {
+        setModalError(`Las ponderaciones del grupo deben sumar 100%. Actualmente suman ${totalEvaluationWeight}%.`);
+        return;
+      }
+      if (Math.round(totalPeriodWeight) !== 100) {
+        setModalError(`El valor de los bloques en la calificación total debe sumar 100%. Actualmente suman ${totalPeriodWeight}%.`);
+        return;
+      }
+      for (const w of evaluationWeights) {
+        if (!w.name.trim()) {
+          setModalError('Todas las ponderaciones deben tener un nombre.');
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -142,6 +229,12 @@ export default function TeacherGroupsPage() {
         schoolYear,
         totalPeriods: parseInt(totalPeriods, 10) || 3,
         periodNames: periodNames.map((pn, i) => pn.trim() || `Período ${i + 1}`),
+        periodWeights: periodWeights,
+        evaluationWeights: evaluationWeights.map(w => ({
+          name: w.name.trim(),
+          percentage: parseFloat(w.percentage) || 0,
+          category: w.category || 'ACTIVIDAD',
+        })),
         description: description.trim(),
       };
 
@@ -355,7 +448,7 @@ export default function TeacherGroupsPage() {
       )}
 
       {/* Create / Edit Group Modal */}
-      <Dialog open={modalOpen} onClose={() => !saving && setModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={modalOpen} onClose={() => !saving && setModalOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <form onSubmit={handleSaveGroup}>
           <DialogTitle sx={{ fontWeight: 800 }}>
             {editingGroup ? 'Editar Grupo Escolar' : 'Crear Nuevo Grupo Escolar'}
@@ -363,10 +456,14 @@ export default function TeacherGroupsPage() {
           <DialogContent dividers>
             {modalError && <Alert severity="error" sx={{ mb: 2 }}>{modalError}</Alert>}
 
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 1.5 }}>
+              1. Datos Generales del Grupo
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={6} sm={3}>
                 <TextField
-                  label="Grado (ej: 1ro, 2do, 6to)"
+                  label="Grado (ej: 1ro, 2do)"
                   fullWidth
                   size="small"
                   value={grade}
@@ -374,7 +471,7 @@ export default function TeacherGroupsPage() {
                   required
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={6} sm={3}>
                 <TextField
                   label="Grupo (ej: A, B, C)"
                   fullWidth
@@ -385,7 +482,7 @@ export default function TeacherGroupsPage() {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   label="Asignatura o Materia"
                   placeholder="Ej: Tecnología, Informática, Matemáticas"
@@ -419,45 +516,6 @@ export default function TeacherGroupsPage() {
 
               <Grid item xs={12}>
                 <TextField
-                  label="Cantidad de Períodos"
-                  type="number"
-                  fullWidth
-                  size="small"
-                  value={totalPeriods}
-                  onChange={(e) => handleTotalPeriodsChange(e.target.value)}
-                  inputProps={{ min: 1, max: 12 }}
-                  disabled={!!editingGroup}
-                  helperText={editingGroup ? 'La cantidad de períodos no se puede cambiar una vez creado el grupo' : 'Indica cuántos períodos tendrá el curso (ej. 1, 2, 3, 4, 5...)'}
-                />
-              </Grid>
-
-              {!editingGroup && (
-                <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 1 }}>
-                    Nombres de los Períodos (Opcional - escribe nombres personalizados para cada uno):
-                  </Typography>
-                  <Grid container spacing={1.5}>
-                    {Array.from({ length: totalPeriods }).map((_, idx) => (
-                      <Grid item xs={12} sm={totalPeriods > 4 ? 4 : 6} key={idx}>
-                        <TextField
-                          size="small"
-                          fullWidth
-                          placeholder={`Período ${idx + 1}`}
-                          value={periodNames[idx] || ''}
-                          onChange={(e) => {
-                            const updated = [...periodNames];
-                            updated[idx] = e.target.value;
-                            setPeriodNames(updated);
-                          }}
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Grid>
-              )}
-
-              <Grid item xs={12}>
-                <TextField
                   label="Descripción o Notas"
                   fullWidth
                   size="small"
@@ -469,6 +527,164 @@ export default function TeacherGroupsPage() {
                 />
               </Grid>
             </Grid>
+
+            <Divider sx={{ my: 2.5 }} />
+
+            {/* Ponderaciones del Grupo */}
+            <Box sx={{ mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                    2. Ponderaciones del Grupo (Se aplican igual a cada bloque/período)
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                    Elige qué ponderaciones existen, cuánto vale cada una y su nombre. Deben sumar 100%.
+                  </Typography>
+                </Box>
+
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddEvaluationWeight}
+                  sx={{ fontWeight: 700 }}
+                >
+                  Agregar Ponderación
+                </Button>
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, my: 1.5 }}>
+                {evaluationWeights.map((ew, idx) => (
+                  <Grid container spacing={1.5} alignItems="center" key={idx}>
+                    <Grid item xs={12} sm={5}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label={`Nombre Ponderación #${idx + 1}`}
+                        placeholder="Ej: Exámenes, Tareas, Libreta, Asistencia"
+                        value={ew.name}
+                        onChange={(e) => handleEvaluationWeightChange(idx, 'name', e.target.value)}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Categoría</InputLabel>
+                        <Select
+                          value={ew.category || 'ACTIVIDAD'}
+                          label="Categoría"
+                          onChange={(e) => handleEvaluationWeightChange(idx, 'category', e.target.value)}
+                        >
+                          <MenuItem value="EXAMEN">Exámenes en línea</MenuItem>
+                          <MenuItem value="ACTIVIDAD">Tareas y Actividades</MenuItem>
+                          <MenuItem value="ASISTENCIA">Pase de Asistencia</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={4} sm={3}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Porcentaje (%)"
+                        type="number"
+                        inputProps={{ min: 1, max: 100 }}
+                        value={ew.percentage}
+                        onChange={(e) => handleEvaluationWeightChange(idx, 'percentage', e.target.value)}
+                        required
+                      />
+                    </Grid>
+                    <Grid item xs={2} sm={1} sx={{ textAlign: 'center' }}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        disabled={evaluationWeights.length <= 1}
+                        onClick={() => handleRemoveEvaluationWeight(idx)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+                ))}
+              </Box>
+
+              <Alert
+                severity={Math.round(totalEvaluationWeight) === 100 ? 'success' : 'warning'}
+                sx={{ py: 0.5, alignItems: 'center' }}
+              >
+                Suma de ponderaciones del grupo: <strong>{totalEvaluationWeight}%</strong> {Math.round(totalEvaluationWeight) === 100 ? '✓ (Correcto)' : '(Debe sumar exactamente 100%)'}
+              </Alert>
+            </Box>
+
+            <Divider sx={{ my: 2.5 }} />
+
+            {/* Períodos y Valor de cada Bloque */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
+                3. Bloques o Períodos y su Valor en la Calificación Total
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                Los bloques pueden valer más o menos de la calificación final del curso (ej. 30%, 30%, 40%). Deben sumar 100%.
+              </Typography>
+
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Cantidad de Bloques / Períodos"
+                    type="number"
+                    fullWidth
+                    size="small"
+                    value={totalPeriods}
+                    onChange={(e) => handleTotalPeriodsChange(e.target.value)}
+                    inputProps={{ min: 1, max: 12 }}
+                    disabled={!!editingGroup}
+                    helperText={editingGroup ? 'La cantidad de períodos no se puede cambiar una vez creado el grupo' : 'Indica cuántos períodos tendrá el curso (ej. 1, 2, 3, 4...)'}
+                  />
+                </Grid>
+              </Grid>
+
+              {!editingGroup && (
+                <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                  {Array.from({ length: totalPeriods }).map((_, idx) => (
+                    <Grid item xs={12} sm={6} key={idx}>
+                      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          label={`Nombre Bloque ${idx + 1}`}
+                          placeholder={`Período ${idx + 1}`}
+                          value={periodNames[idx] || ''}
+                          onChange={(e) => {
+                            const updated = [...periodNames];
+                            updated[idx] = e.target.value;
+                            setPeriodNames(updated);
+                          }}
+                          sx={{ mb: 1.5 }}
+                        />
+                        <TextField
+                          size="small"
+                          fullWidth
+                          label={`Valor en Calificación Final (%)`}
+                          type="number"
+                          inputProps={{ min: 0, max: 100, step: 0.5 }}
+                          value={periodWeights[idx] !== undefined ? periodWeights[idx] : ''}
+                          onChange={(e) => handlePeriodWeightChange(idx, e.target.value)}
+                          helperText={`¿Cuánto vale este bloque para la calificación anual/final?`}
+                        />
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+
+              {!editingGroup && (
+                <Alert
+                  severity={Math.round(totalPeriodWeight) === 100 ? 'success' : 'warning'}
+                  sx={{ py: 0.5, alignItems: 'center' }}
+                >
+                  Suma del valor de los bloques: <strong>{totalPeriodWeight}%</strong> {Math.round(totalPeriodWeight) === 100 ? '✓ (Correcto)' : '(Debe sumar exactamente 100%)'}
+                </Alert>
+              )}
+            </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={() => setModalOpen(false)} color="inherit" disabled={saving}>

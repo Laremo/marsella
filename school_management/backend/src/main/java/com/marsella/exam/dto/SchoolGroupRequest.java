@@ -29,5 +29,7 @@ public class SchoolGroupRequest {
     private PeriodType periodType;
     private Integer totalPeriods; // Cantidad de períodos
     private java.util.List<String> periodNames; // Nombres personalizados para cada período
+    private java.util.List<Double> periodWeights; // Ponderación de cada período en la calificación final (ej. [30, 30, 40])
+    private java.util.List<GroupEvaluationWeightDto> evaluationWeights; // Ponderaciones del grupo que aplican a cada bloque
     private String description;
 }
