@@ -89,6 +89,7 @@ export default function TeacherGroupDetailPage() {
   // Tab 1: Periods & Weights State
   const [weightsModalOpen, setWeightsModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState(null);
+  const [editingPeriodName, setEditingPeriodName] = useState('');
   const [examWeight, setExamWeight] = useState(40);
   const [activityWeight, setActivityWeight] = useState(40);
   const [attendanceWeight, setAttendanceWeight] = useState(20);
@@ -306,6 +307,7 @@ export default function TeacherGroupDetailPage() {
   // Tab 1 Handlers (Periods & Weights)
   const handleOpenWeights = (period) => {
     setEditingPeriod(period);
+    setEditingPeriodName(period.name || '');
     setExamWeight(period.examWeight || 40);
     setActivityWeight(period.activityWeight || 40);
     setAttendanceWeight(period.attendanceWeight || 20);
@@ -317,6 +319,7 @@ export default function TeacherGroupDetailPage() {
     if (!editingPeriod) return;
     try {
       await api.put(`/teacher/groups/${id}/periods/${editingPeriod.id}/weights`, {
+        name: editingPeriodName.trim() || editingPeriod.name,
         examWeight,
         activityWeight,
         attendanceWeight,
@@ -324,7 +327,7 @@ export default function TeacherGroupDetailPage() {
         targetScale: 10.0,
       });
       setWeightsModalOpen(false);
-      setSnack('Ponderaciones guardadas con éxito.');
+      setSnack('Período y ponderaciones guardados con éxito.');
       fetchGroupDetails();
     } catch (err) {
       setSnack('Error al guardar ponderaciones.');
@@ -1139,8 +1142,19 @@ export default function TeacherGroupDetailPage() {
 
       {/* Adjust Weights Modal */}
       <Dialog open={weightsModalOpen} onClose={() => setWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>Ponderaciones: {editingPeriod?.name}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>Configuración de Período y Ponderaciones</DialogTitle>
         <DialogContent dividers>
+          <TextField
+            label="Nombre del Período"
+            fullWidth
+            size="small"
+            value={editingPeriodName}
+            onChange={(e) => setEditingPeriodName(e.target.value)}
+            sx={{ mb: 2.5 }}
+            placeholder="Ej: Primer Parcial, Unidad 1, Período 1..."
+            helperText="Personaliza el nombre libremente (sin etiquetas fijas)"
+          />
+
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
             Define qué porcentaje de la calificación final del período representa cada aspecto. La suma debe dar 100%.
           </Typography>
@@ -1166,7 +1180,7 @@ export default function TeacherGroupDetailPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setWeightsModalOpen(false)} color="inherit">Cancelar</Button>
-          <Button variant="contained" onClick={handleSaveWeights}>Guardar Ponderaciones</Button>
+          <Button variant="contained" onClick={handleSaveWeights}>Guardar Cambios</Button>
         </DialogActions>
       </Dialog>
 

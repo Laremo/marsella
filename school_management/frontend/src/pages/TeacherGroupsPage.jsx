@@ -39,15 +39,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const PERIOD_TYPES = [
-  { value: 'TRIMESTRE', label: 'Trimestres (3 períodos)', count: 3 },
-  { value: 'BLOQUE', label: 'Bloques (5 períodos)', count: 5 },
-  { value: 'BIMESTRE', label: 'Bimestres (5 períodos)', count: 5 },
-  { value: 'SEMESTRE', label: 'Semestres (2 períodos)', count: 2 },
-  { value: 'CUATRIMESTRE', label: 'Cuatrimestres (3 períodos)', count: 3 },
-  { value: 'ANUAL', label: 'Ciclo Anual (1 período)', count: 1 },
-  { value: 'PERSONALIZADO', label: 'Personalizado', count: 4 },
-];
 
 export default function TeacherGroupsPage() {
   const [groups, setGroups] = useState([]);
@@ -66,8 +57,8 @@ export default function TeacherGroupsPage() {
   const [subject, setSubject] = useState('Tecnología');
   const [shift, setShift] = useState('Matutino');
   const [schoolYear, setSchoolYear] = useState('2026-2027');
-  const [periodType, setPeriodType] = useState('TRIMESTRE');
   const [totalPeriods, setTotalPeriods] = useState(3);
+  const [periodNames, setPeriodNames] = useState(['', '', '']);
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
@@ -92,6 +83,18 @@ export default function TeacherGroupsPage() {
     fetchGroups();
   }, []);
 
+  const handleTotalPeriodsChange = (val) => {
+    const num = Math.max(1, Math.min(12, parseInt(val, 10) || 1));
+    setTotalPeriods(num);
+    setPeriodNames((prev) => {
+      const updated = [...prev];
+      while (updated.length < num) {
+        updated.push('');
+      }
+      return updated.slice(0, num);
+    });
+  };
+
   const handleOpenCreate = () => {
     setEditingGroup(null);
     setName('');
@@ -99,8 +102,8 @@ export default function TeacherGroupsPage() {
     setSubject('Tecnología');
     setShift('Matutino');
     setSchoolYear('2026-2027');
-    setPeriodType('TRIMESTRE');
     setTotalPeriods(3);
+    setPeriodNames(['', '', '']);
     setDescription('');
     setModalError('');
     setModalOpen(true);
@@ -114,19 +117,11 @@ export default function TeacherGroupsPage() {
     setSubject(group.subject || '');
     setShift(group.shift || 'Matutino');
     setSchoolYear(group.schoolYear || '2026-2027');
-    setPeriodType(group.periodType || 'TRIMESTRE');
     setTotalPeriods(group.totalPeriods || 3);
+    setPeriodNames(group.periods ? group.periods.map((p) => p.name) : []);
     setDescription(group.description || '');
     setModalError('');
     setModalOpen(true);
-  };
-
-  const handlePeriodTypeChange = (typeVal) => {
-    setPeriodType(typeVal);
-    const found = PERIOD_TYPES.find((p) => p.value === typeVal);
-    if (found && typeVal !== 'PERSONALIZADO') {
-      setTotalPeriods(found.count);
-    }
   };
 
   const handleSaveGroup = async (e) => {
@@ -145,8 +140,8 @@ export default function TeacherGroupsPage() {
         subject: subject.trim(),
         shift,
         schoolYear,
-        periodType,
         totalPeriods: parseInt(totalPeriods, 10) || 3,
+        periodNames: periodNames.map((pn, i) => pn.trim() || `Período ${i + 1}`),
         description: description.trim(),
       };
 
@@ -319,7 +314,7 @@ export default function TeacherGroupsPage() {
                     </Box>
 
                     <Chip
-                      label={`${group.totalPeriods} ${group.periodTypeLabel || group.periodType}`}
+                      label={`${group.totalPeriods} ${group.totalPeriods === 1 ? 'Período' : 'Períodos'}`}
                       size="small"
                       sx={{ bgcolor: isDark ? '#1E2945' : '#e0e7ff', color: 'primary.main', fontWeight: 700, fontSize: '0.72rem' }}
                     />
@@ -422,36 +417,44 @@ export default function TeacherGroupsPage() {
                 />
               </Grid>
 
-              <Grid item xs={8}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Esquema de Períodos</InputLabel>
-                  <Select
-                    value={periodType}
-                    label="Esquema de Períodos"
-                    onChange={(e) => handlePeriodTypeChange(e.target.value)}
-                    disabled={!!editingGroup} // Can't change scheme once periods exist
-                  >
-                    {PERIOD_TYPES.map((pt) => (
-                      <MenuItem key={pt.value} value={pt.value}>
-                        {pt.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={4}>
+              <Grid item xs={12}>
                 <TextField
-                  label="No. Períodos"
+                  label="Cantidad de Períodos"
                   type="number"
                   fullWidth
                   size="small"
                   value={totalPeriods}
-                  onChange={(e) => setTotalPeriods(e.target.value)}
+                  onChange={(e) => handleTotalPeriodsChange(e.target.value)}
                   inputProps={{ min: 1, max: 12 }}
                   disabled={!!editingGroup}
+                  helperText={editingGroup ? 'La cantidad de períodos no se puede cambiar una vez creado el grupo' : 'Indica cuántos períodos tendrá el curso (ej. 1, 2, 3, 4, 5...)'}
                 />
               </Grid>
+
+              {!editingGroup && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 1 }}>
+                    Nombres de los Períodos (Opcional - escribe nombres personalizados para cada uno):
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {Array.from({ length: totalPeriods }).map((_, idx) => (
+                      <Grid item xs={12} sm={totalPeriods > 4 ? 4 : 6} key={idx}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          placeholder={`Período ${idx + 1}`}
+                          value={periodNames[idx] || ''}
+                          onChange={(e) => {
+                            const updated = [...periodNames];
+                            updated[idx] = e.target.value;
+                            setPeriodNames(updated);
+                          }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Grid>
+              )}
 
               <Grid item xs={12}>
                 <TextField

@@ -62,14 +62,21 @@ public class SchoolGroupService {
                 .description(request.getDescription())
                 .build();
 
-        // Generate default periods
+        // Generate periods
         List<AcademicPeriod> periods = new ArrayList<>();
-        String prefix = getPeriodPrefix(pType);
+        List<String> customNames = request.getPeriodNames();
         for (int i = 1; i <= totalPeriods; i++) {
+            String periodName;
+            if (customNames != null && customNames.size() >= i && customNames.get(i - 1) != null && !customNames.get(i - 1).isBlank()) {
+                periodName = customNames.get(i - 1).trim();
+            } else {
+                periodName = "Período " + i;
+            }
+
             AcademicPeriod period = AcademicPeriod.builder()
                     .schoolGroup(group)
                     .periodNumber(i)
-                    .name(prefix + " " + i)
+                    .name(periodName)
                     .isCurrent(i == 1) // First period is active by default
                     .examWeight(40.0)
                     .activityWeight(40.0)
@@ -171,7 +178,7 @@ public class SchoolGroupService {
                 .shift(group.getShift())
                 .schoolYear(group.getSchoolYear())
                 .periodType(group.getPeriodType())
-                .periodTypeLabel(group.getPeriodType() != null ? group.getPeriodType().getLabel() : "")
+                .periodTypeLabel(group.getPeriodType() != null && group.getPeriodType() != PeriodType.PERSONALIZADO ? group.getPeriodType().getLabel() : "Períodos")
                 .totalPeriods(group.getTotalPeriods())
                 .description(group.getDescription())
                 .studentCount(studentCount)

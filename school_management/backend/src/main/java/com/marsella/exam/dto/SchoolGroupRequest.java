@@ -26,10 +26,8 @@ public class SchoolGroupRequest {
 
     private String schoolYear; // "2026-2027"
 
-    @NotNull(message = "El tipo de período es obligatorio")
     private PeriodType periodType;
-
-    private Integer totalPeriods; // Cantidad de períodos (e.g. 3 para trimestres, 5 para bloques)
-
+    private Integer totalPeriods; // Cantidad de períodos
+    private java.util.List<String> periodNames; // Nombres personalizados para cada período
     private String description;
 }
