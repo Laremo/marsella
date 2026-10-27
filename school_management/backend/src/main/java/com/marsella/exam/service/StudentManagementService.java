@@ -42,7 +42,7 @@ public class StudentManagementService {
         SchoolGroup group = groupRepository.findByIdAndTeacherId(groupId, teacherId)
                 .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
 
-        String cleanName = dto.getFullName().trim();
+        String cleanName = formatAndCapitalizeName(dto.getFullName());
         if (studentRepository.existsBySchoolGroupIdAndFullNameIgnoreCase(group.getId(), cleanName)) {
             throw new IllegalArgumentException("Ya existe un alumno con el nombre '" + cleanName + "' en este grupo");
         }
@@ -72,7 +72,7 @@ public class StudentManagementService {
         Student student = studentRepository.findByIdAndSchoolGroupId(studentId, group.getId())
                 .orElseThrow(() -> new NoSuchElementException("Alumno no encontrado"));
 
-        student.setFullName(dto.getFullName().trim());
+        student.setFullName(formatAndCapitalizeName(dto.getFullName()));
         if (dto.getStudentIdentifier() != null) student.setStudentIdentifier(dto.getStudentIdentifier().trim());
         if (dto.getListNumber() != null) student.setListNumber(dto.getListNumber());
         if (dto.getNotes() != null) student.setNotes(dto.getNotes());
@@ -111,20 +111,21 @@ public class StudentManagementService {
             List<StudentSubmission> subs = submissionRepository.findByExamIdOrderByStudentNameAsc(exam.getId());
             for (StudentSubmission s : subs) {
                 if (s.getStudentName() != null && !s.getStudentName().trim().isBlank()) {
-                    candidateNames.add(s.getStudentName().trim());
+                    String formatted = formatAndCapitalizeName(s.getStudentName());
+                    if (!formatted.isBlank()) {
+                        candidateNames.add(formatted);
+                    }
                 }
             }
         }
 
-        // 2. If raw text provided (e.g. pasted list from Excel/Word)
+        // 2. If raw text provided (e.g. pasted list in APELLIDOS, NOMBRES format)
         if (request.getRawNamesText() != null && !request.getRawNamesText().isBlank()) {
             String[] lines = request.getRawNamesText().split("\\r?\\n");
             for (String line : lines) {
-                String trimmed = line.trim();
-                // strip leading numbering like "1. ", "1 - ", etc.
-                trimmed = trimmed.replaceFirst("^\\d+[.\\s-]+", "").trim();
-                if (!trimmed.isBlank()) {
-                    candidateNames.add(trimmed);
+                String formatted = formatAndCapitalizeName(line);
+                if (!formatted.isBlank()) {
+                    candidateNames.add(formatted);
                 }
             }
         }
@@ -133,7 +134,10 @@ public class StudentManagementService {
         if (request.getStudentNames() != null) {
             for (String n : request.getStudentNames()) {
                 if (n != null && !n.trim().isBlank()) {
-                    candidateNames.add(n.trim());
+                    String formatted = formatAndCapitalizeName(n);
+                    if (!formatted.isBlank()) {
+                        candidateNames.add(formatted);
+                    }
                 }
             }
         }
@@ -188,5 +192,63 @@ public class StudentManagementService {
                 .active(s.getActive())
                 .createdAt(s.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Formats and capitalizes student names.
+     * Supported roster formats:
+     * - APELLIDO APELLIDO, NOMBRE NOMBRE (e.g. GARCIA PEREZ, JUAN CARLOS -> Garcia Perez, Juan Carlos)
+     * - APELLIDO APELLIDO,  NOMBRE       (e.g. GARCIA PEREZ,  JUAN -> Garcia Perez, Juan)
+     * - APELLIDO , NOMBRE                (e.g. HERNANDEZ , CARLOS -> Hernandez, Carlos)
+     * - 1 or 2 surnames, 1 or more given names.
+     * Gracefully handles single names or lines without commas as well.
+     */
+    public static String formatAndCapitalizeName(String raw) {
+        if (raw == null || raw.trim().isBlank()) return "";
+        // Strip leading numbering like "1. ", "1 - ", "01. "
+        String trimmed = raw.trim().replaceFirst("^\\d+[.\\s-]+", "").trim();
+        if (trimmed.isBlank()) return "";
+
+        if (trimmed.contains(",")) {
+            String[] parts = trimmed.split(",", 2);
+            String apellidos = capitalizePhrase(parts[0].trim());
+            String nombres = parts.length > 1 ? capitalizePhrase(parts[1].trim()) : "";
+
+            if (!nombres.isBlank()) {
+                return apellidos + ", " + nombres;
+            } else {
+                return apellidos;
+            }
+        } else {
+            return capitalizePhrase(trimmed);
+        }
+    }
+
+    public static String capitalizePhrase(String phrase) {
+        if (phrase == null || phrase.isBlank()) return "";
+        String[] words = phrase.split("\\s+");
+        Set<String> particles = Set.of("de", "del", "la", "las", "los", "y", "e", "da", "di");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < words.length; i++) {
+            String word = words[i].trim();
+            if (word.isEmpty()) continue;
+
+            String lower = word.toLowerCase();
+            if (i > 0 && particles.contains(lower)) {
+                sb.append(lower);
+            } else {
+                if (word.length() == 1) {
+                    sb.append(word.toUpperCase());
+                } else {
+                    sb.append(Character.toUpperCase(word.charAt(0)))
+                      .append(word.substring(1).toLowerCase());
+                }
+            }
+            if (i < words.length - 1) {
+                sb.append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 }

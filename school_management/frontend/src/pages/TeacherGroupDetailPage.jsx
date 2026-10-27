@@ -61,6 +61,32 @@ import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
 
+const formatClientStudentName = (raw) => {
+  if (!raw || !raw.trim()) return '';
+  const trimmed = raw.trim().replace(/^\d+[.\s-]+/, '').trim();
+  if (!trimmed) return '';
+
+  const capitalizeWords = (phrase) => {
+    const particles = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'di']);
+    return phrase
+      .split(/\s+/)
+      .map((w, idx) => {
+        const lower = w.toLowerCase();
+        if (idx > 0 && particles.has(lower)) return lower;
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      })
+      .join(' ');
+  };
+
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',', 2);
+    const apellidos = capitalizeWords(parts[0].trim());
+    const nombres = parts.length > 1 ? capitalizeWords(parts[1].trim()) : '';
+    return nombres ? `${apellidos}, ${nombres}` : apellidos;
+  }
+  return capitalizeWords(trimmed);
+};
+
 export default function TeacherGroupDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -471,6 +497,12 @@ export default function TeacherGroupDetailPage() {
   }
 
   const selectedPeriod = group?.periods?.find((p) => p.id === selectedPeriodId) || group?.periods?.[0];
+
+  const bulkLines = bulkRawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const bulkPreviewFormatted = bulkLines.map(formatClientStudentName).filter(Boolean);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -1084,17 +1116,55 @@ export default function TeacherGroupDetailPage() {
       <Dialog open={bulkTextModalOpen} onClose={() => setBulkTextModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>Importar Lista de Nombres</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-            Pega una lista de alumnos (un nombre por renglón). Se ordenarán alfabéticamente y se omitirán duplicados automáticamente.
-          </Typography>
+          <Alert severity="info" sx={{ mb: 2, fontSize: '0.85rem' }}>
+            <Typography variant="body2" sx={{ fontWeight: 800, mb: 0.5 }}>
+              Formato requerido por renglón: <code>APELLIDOS, NOMBRES</code>
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 700 }}>
+              Ejemplos aceptados:
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2, fontSize: '0.8rem' }}>
+              <li><code>APELLIDO APELLIDO, NOMBRE NOMBRE</code> (ej. <code>GARCÍA HERNÁNDEZ, JUAN CARLOS</code>)</li>
+              <li><code>APELLIDO APELLIDO,  NOMBRE</code> (ej. <code>LÓPEZ PÉREZ,  SOFÍA</code>)</li>
+              <li><code>APELLIDO , NOMBRE</code> (ej. <code>MARTÍNEZ , JOSÉ</code>)</li>
+              <li>Puede haber solo un apellido o solo un nombre.</li>
+            </Box>
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.8, color: 'text.secondary', fontWeight: 600 }}>
+              * El sistema capitaliza automáticamente cada nombre (Title Case) y los ordena alfabéticamente por apellido.
+            </Typography>
+          </Alert>
+
           <TextField
             multiline
-            rows={8}
+            rows={7}
             fullWidth
-            placeholder="Santiago Aguilar&#10;José Ángel Martínez&#10;Dylan Armando Muñoz..."
+            placeholder="GARCÍA HERNÁNDEZ, JUAN CARLOS&#10;LÓPEZ PÉREZ, SOFÍA&#10;MARTÍNEZ, JOSÉ ÁNGEL&#10;RODRÍGUEZ, CARLOS"
             value={bulkRawText}
             onChange={(e) => setBulkRawText(e.target.value)}
           />
+
+          {bulkLines.length > 0 && (
+            <Box sx={{ mt: 2, p: 1.5, bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc', borderRadius: '8px', border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                  {bulkLines.length} {bulkLines.length === 1 ? 'alumno detectado' : 'alumnos detectados'} (Vista previa con capitalización):
+                </Typography>
+                <Chip label="Auto-capitalizado" size="small" color="primary" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+              </Box>
+              <Box sx={{ maxHeight: 110, overflowY: 'auto' }}>
+                {bulkPreviewFormatted.slice(0, 5).map((formatted, idx) => (
+                  <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                    {idx + 1}. {formatted}
+                  </Typography>
+                ))}
+                {bulkPreviewFormatted.length > 5 && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic', display: 'block', mt: 0.5 }}>
+                    ...y {bulkPreviewFormatted.length - 5} alumnos más
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setBulkTextModalOpen(false)} color="inherit" disabled={importing}>
@@ -1104,9 +1174,9 @@ export default function TeacherGroupDetailPage() {
             variant="contained"
             color="primary"
             onClick={handleBulkImportText}
-            disabled={!bulkRawText.trim() || importing}
+            disabled={bulkLines.length === 0 || importing}
           >
-            {importing ? <CircularProgress size={20} color="inherit" /> : 'Importar Lista'}
+            {importing ? <CircularProgress size={20} color="inherit" /> : `Importar ${bulkLines.length} Alumnos`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1117,7 +1187,9 @@ export default function TeacherGroupDetailPage() {
           <DialogTitle sx={{ fontWeight: 800 }}>Agregar Alumno</DialogTitle>
           <DialogContent dividers>
             <TextField
-              label="Nombre Completo del Alumno"
+              label="Nombre del Alumno"
+              placeholder="Ej: García Hernández, Juan Carlos"
+              helperText="Formato: APELLIDO(S), NOMBRE(S). El sistema lo capitalizará automáticamente."
               fullWidth
               size="small"
               value={newStudentName}
