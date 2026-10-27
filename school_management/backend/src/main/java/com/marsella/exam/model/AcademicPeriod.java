@@ -41,7 +41,7 @@ public class AcademicPeriod {
     /**
      * Peso / porcentaje de este bloque en la calificación final anual/total del curso (ej. 33.3%, 20%, 40%)
      */
-    @Column(nullable = false)
+    @Column(name = "period_weight")
     @Builder.Default
     private Double periodWeight = 100.0;
 
