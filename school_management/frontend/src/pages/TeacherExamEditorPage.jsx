@@ -18,6 +18,11 @@ import {
   Divider,
   CircularProgress,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -28,6 +33,8 @@ import {
   ArrowUpward as UpIcon,
   ArrowDownward as DownIcon,
   Lock as LockIcon,
+  Balance as BalanceIcon,
+  CheckCircle as CheckIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -58,10 +65,15 @@ export default function TeacherExamEditorPage() {
   const [endDate, setEndDate] = useState(dayjs().add(2, 'hour').format('YYYY-MM-DDTHH:mm'));
   const [isActive, setIsActive] = useState(true);
   const [questions, setQuestions] = useState([]);
+  const [targetTotalPoints, setTargetTotalPoints] = useState(10);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
+
+  // Prompt dialog when a question's points are edited
+  const [pointChangeDialog, setPointChangeDialog] = useState(null);
+  const [snackMessage, setSnackMessage] = useState('');
 
   useEffect(() => {
     if (isEditing) {
@@ -79,6 +91,9 @@ export default function TeacherExamEditorPage() {
           setEndDate(dayjs(exam.endDate).format('YYYY-MM-DDTHH:mm'));
           setIsActive(exam.isActive);
           setQuestions(exam.questions || []);
+          if (exam.totalPoints && exam.totalPoints > 0) {
+            setTargetTotalPoints(exam.totalPoints);
+          }
         } catch (err) {
           setError('Error al cargar la información del examen.');
         } finally {
@@ -108,6 +123,9 @@ export default function TeacherExamEditorPage() {
           setStartDate(dayjs().format('YYYY-MM-DDTHH:mm'));
           setEndDate(dayjs().add(2, 'hour').format('YYYY-MM-DDTHH:mm'));
           setIsActive(true);
+          if (exam.totalPoints && exam.totalPoints > 0) {
+            setTargetTotalPoints(exam.totalPoints);
+          }
           const clonedQuestions = (exam.questions || []).map((q, idx) => ({
             questionOrder: idx + 1,
             prompt: q.prompt,
@@ -127,6 +145,29 @@ export default function TeacherExamEditorPage() {
     }
   }, [id, isEditing, cloneFrom]);
 
+  // Smart 2-decimal distribution algorithm that ensures exact total
+  const calculateSmartDistribution = (total, count) => {
+    if (count <= 0) return [];
+    if (total <= 0) return new Array(count).fill(0);
+    const base = Math.floor((total / count) * 100) / 100;
+    const remainderCents = Math.round((total - base * count) * 100);
+    const points = [];
+    for (let i = 0; i < count; i++) {
+      if (i < remainderCents) {
+        points.push(Math.round((base + 0.01) * 100) / 100);
+      } else {
+        points.push(base);
+      }
+    }
+    return points;
+  };
+
+  const calculateDefaultPointsForNew = () => {
+    const nextCount = questions.length + 1;
+    const dist = calculateSmartDistribution(targetTotalPoints, nextCount);
+    return dist.length > 0 ? dist[dist.length - 1] : 1.0;
+  };
+
   const handleOpenAddModal = () => {
     setEditingQuestionIndex(null);
     setModalOpen(true);
@@ -139,18 +180,117 @@ export default function TeacherExamEditorPage() {
 
   const handleSaveQuestion = (questionData) => {
     if (editingQuestionIndex !== null) {
-      // Edit existing
+      // EDITING EXISTING QUESTION
+      const oldQ = questions[editingQuestionIndex];
+      const oldPoints = parseFloat(oldQ.points) || 0;
+      const newPoints = parseFloat(questionData.points) || 0;
+
+      // Check if question point value was changed
+      if (Math.abs(oldPoints - newPoints) > 0.001) {
+        setPointChangeDialog({
+          questionIndex: editingQuestionIndex,
+          oldPoints,
+          newPoints,
+          questionData,
+        });
+        return;
+      }
+
+      // Points unchanged: simple update
       const updated = [...questions];
       updated[editingQuestionIndex] = questionData;
       setQuestions(updated);
+      setModalOpen(false);
+      setEditingQuestionIndex(null);
     } else {
-      // Add new
-      setQuestions([...questions, questionData]);
+      // ADDING NEW QUESTION: Auto-distribute targetTotalPoints across all questions
+      const newCount = questions.length + 1;
+      const distributed = calculateSmartDistribution(targetTotalPoints, newCount);
+      const updatedExisting = questions.map((q, idx) => ({
+        ...q,
+        points: distributed[idx],
+      }));
+      const finalNew = {
+        ...questionData,
+        points: distributed[newCount - 1],
+      };
+      setQuestions([...updatedExisting, finalNew]);
+      setModalOpen(false);
+      setSnackMessage(`Pregunta agregada. Se ajustó el puntaje a ${targetTotalPoints} puntos en total.`);
     }
   };
 
+  // User chose to automatically adjust remaining questions
+  const handleApplyRedistributeOthers = () => {
+    if (!pointChangeDialog) return;
+    const { questionIndex, newPoints, questionData } = pointChangeDialog;
+    const otherCount = questions.length - 1;
+
+    let updated = [...questions];
+    updated[questionIndex] = questionData;
+
+    if (otherCount > 0) {
+      const remainingTotal = Math.max(0, targetTotalPoints - newPoints);
+      const dist = calculateSmartDistribution(remainingTotal, otherCount);
+      let distIdx = 0;
+      for (let i = 0; i < updated.length; i++) {
+        if (i !== questionIndex) {
+          updated[i] = {
+            ...updated[i],
+            points: dist[distIdx++],
+          };
+        }
+      }
+    }
+
+    setQuestions(updated);
+    setPointChangeDialog(null);
+    setModalOpen(false);
+    setEditingQuestionIndex(null);
+    setSnackMessage('Se actualizó la pregunta y se ajustaron las demás automáticamente.');
+  };
+
+  // User chose to keep other questions as they were
+  const handleKeepOthers = () => {
+    if (!pointChangeDialog) return;
+    const { questionIndex, questionData } = pointChangeDialog;
+    const updated = [...questions];
+    updated[questionIndex] = questionData;
+    setQuestions(updated);
+
+    const newSum = updated.reduce((acc, q) => acc + (parseFloat(q.points) || 0), 0);
+    setTargetTotalPoints(Math.round(newSum * 100) / 100);
+
+    setPointChangeDialog(null);
+    setModalOpen(false);
+    setEditingQuestionIndex(null);
+    setSnackMessage('Se actualizó la pregunta conservando los valores de las demás.');
+  };
+
   const handleDeleteQuestion = (index) => {
-    setQuestions(questions.filter((_, i) => i !== index));
+    const remaining = questions.filter((_, i) => i !== index);
+    if (remaining.length > 0) {
+      const distributed = calculateSmartDistribution(targetTotalPoints, remaining.length);
+      const updated = remaining.map((q, idx) => ({
+        ...q,
+        points: distributed[idx],
+      }));
+      setQuestions(updated);
+      setSnackMessage(`Pregunta eliminada. Se redistribuyó el total de ${targetTotalPoints} puntos.`);
+    } else {
+      setQuestions([]);
+    }
+  };
+
+  const handleEvenlyDistributePoints = () => {
+    if (questions.length === 0) return;
+    const distributed = calculateSmartDistribution(targetTotalPoints, questions.length);
+    const updated = questions.map((q, idx) => ({
+      ...q,
+      points: distributed[idx],
+    }));
+    setQuestions(updated);
+    setSnackMessage(`Se repartieron los ${targetTotalPoints} puntos equitativamente entre las ${questions.length} preguntas.`);
   };
 
   const handleMoveQuestion = (index, direction) => {
@@ -164,6 +304,8 @@ export default function TeacherExamEditorPage() {
   };
 
   const totalPoints = questions.reduce((acc, q) => acc + (parseFloat(q.points) || 0), 0);
+  const roundedTotal = Math.round(totalPoints * 100) / 100;
+  const isTargetMatched = Math.abs(roundedTotal - targetTotalPoints) <= 0.01;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -302,6 +444,65 @@ export default function TeacherExamEditorPage() {
                   />
                 </Box>
 
+                {/* Target Total Points configuration */}
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: '10px',
+                    bgcolor: isDark ? 'rgba(75, 119, 216, 0.08)' : '#f8fafc',
+                    border: '1px solid',
+                    borderColor: isDark ? 'rgba(75, 119, 216, 0.25)' : '#e2e8f0',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                      Puntaje Total del Examen
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Chip
+                        label="10 pts"
+                        size="small"
+                        clickable
+                        color={targetTotalPoints === 10 ? 'primary' : 'default'}
+                        onClick={() => {
+                          setTargetTotalPoints(10);
+                          if (questions.length > 0) {
+                            const dist = calculateSmartDistribution(10, questions.length);
+                            setQuestions(questions.map((q, idx) => ({ ...q, points: dist[idx] })));
+                          }
+                        }}
+                        sx={{ fontWeight: 700, height: 22, fontSize: '0.72rem' }}
+                      />
+                      <Chip
+                        label="100 pts"
+                        size="small"
+                        clickable
+                        color={targetTotalPoints === 100 ? 'primary' : 'default'}
+                        onClick={() => {
+                          setTargetTotalPoints(100);
+                          if (questions.length > 0) {
+                            const dist = calculateSmartDistribution(100, questions.length);
+                            setQuestions(questions.map((q, idx) => ({ ...q, points: dist[idx] })));
+                          }
+                        }}
+                        sx={{ fontWeight: 700, height: 22, fontSize: '0.72rem' }}
+                      />
+                    </Box>
+                  </Box>
+                  <TextField
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={targetTotalPoints}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setTargetTotalPoints(val);
+                    }}
+                    inputProps={{ min: 1, step: 0.5 }}
+                    helperText="El sistema distribuirá automáticamente este total conforme agregues o quites preguntas."
+                  />
+                </Box>
+
                 <TextField
                   label="Descripción o Instrucciones"
                   placeholder="Instrucciones para los alumnos..."
@@ -366,25 +567,50 @@ export default function TeacherExamEditorPage() {
         <Grid item xs={12} md={7}>
           <Card sx={{ borderRadius: '12px' }}>
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
                     Preguntas ({questions.length})
                   </Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Puntuación total acumulada:{' '}
-                    <strong>{Math.round(totalPoints * 100) / 100} puntos</strong>
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Puntuación total:
+                    </Typography>
+                    <Chip
+                      icon={isTargetMatched ? <CheckIcon sx={{ fontSize: '15px !important' }} /> : undefined}
+                      label={`${roundedTotal} / ${targetTotalPoints} pts`}
+                      size="small"
+                      color={isTargetMatched ? 'success' : 'warning'}
+                      variant={isTargetMatched ? 'filled' : 'outlined'}
+                      sx={{ fontWeight: 800, height: 22, fontSize: '0.75rem' }}
+                    />
+                  </Box>
                 </Box>
 
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenAddModal}
-                  sx={{ fontWeight: 700 }}
-                >
-                  Agregar Pregunta
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {questions.length > 0 && (
+                    <Tooltip title={`Repartir exactamente los ${targetTotalPoints} puntos equitativamente entre las ${questions.length} preguntas`}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<BalanceIcon />}
+                        onClick={handleEvenlyDistributePoints}
+                        sx={{ fontWeight: 600, fontSize: '0.8rem' }}
+                      >
+                        Repartir Puntos
+                      </Button>
+                    </Tooltip>
+                  )}
+
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleOpenAddModal}
+                    sx={{ fontWeight: 700 }}
+                  >
+                    Agregar Pregunta
+                  </Button>
+                </Box>
               </Box>
 
               <Divider sx={{ mb: 2 }} />
@@ -508,9 +734,92 @@ export default function TeacherExamEditorPage() {
       {/* Question Builder Modal */}
       <QuestionBuilderModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingQuestionIndex(null);
+        }}
         onSave={handleSaveQuestion}
         initialData={editingQuestionIndex !== null ? questions[editingQuestionIndex] : null}
+        defaultPoints={calculateDefaultPointsForNew()}
+      />
+
+      {/* Point Change Confirmation Prompt */}
+      <Dialog
+        open={!!pointChangeDialog}
+        onClose={() => setPointChangeDialog(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          ¿Deseas redistribuir el puntaje de las demás preguntas?
+        </DialogTitle>
+        <DialogContent dividers>
+          {pointChangeDialog && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body1">
+                Cambiaste el valor de la <strong>Pregunta #{pointChangeDialog.questionIndex + 1}</strong> de{' '}
+                <Chip label={`${pointChangeDialog.oldPoints} pts`} size="small" /> a{' '}
+                <Chip label={`${pointChangeDialog.newPoints} pts`} size="small" color="primary" />.
+              </Typography>
+
+              <Alert severity="info" sx={{ borderRadius: '8px' }}>
+                {questions.length > 1 ? (
+                  <>
+                    El examen está configurado para un total de <strong>{targetTotalPoints} puntos</strong>.
+                    <br />
+                    Si ajustas automáticamente, quedarán{' '}
+                    <strong>
+                      {Math.max(0, targetTotalPoints - pointChangeDialog.newPoints).toFixed(2)} pts
+                    </strong>{' '}
+                    repartidos equitativamente entre las otras <strong>{questions.length - 1}</strong> preguntas (aprox.{' '}
+                    <strong>
+                      {Math.max(0, (targetTotalPoints - pointChangeDialog.newPoints) / (questions.length - 1)).toFixed(2)} pts
+                    </strong>{' '}
+                    cada una).
+                  </>
+                ) : (
+                  <>Esta es la única pregunta del examen.</>
+                )}
+              </Alert>
+
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                ¿Deseas que el sistema ajuste el puntaje del resto de las preguntas para mantener el total de {targetTotalPoints} puntos, o prefieres conservar los valores que ya tenían?
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <Button onClick={() => setPointChangeDialog(null)} color="inherit">
+            Volver a editar
+          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleKeepOthers}
+              sx={{ fontWeight: 600 }}
+            >
+              Mantener valores actuales
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleApplyRedistributeOthers}
+              sx={{ fontWeight: 700 }}
+            >
+              Ajustar las demás preguntas
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar notification */}
+      <Snackbar
+        open={!!snackMessage}
+        autoHideDuration={3000}
+        onClose={() => setSnackMessage('')}
+        message={snackMessage}
       />
     </Container>
   );

@@ -39,12 +39,12 @@ const QUESTION_TYPES = [
   { value: 'OPEN_TEXT', label: 'Pregunta Abierta (Respuesta Escrita)' },
 ];
 
-export default function QuestionBuilderModal({ open, onClose, onSave, initialData }) {
+export default function QuestionBuilderModal({ open, onClose, onSave, initialData, defaultPoints }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [type, setType] = useState('MULTIPLE_CHOICE');
   const [prompt, setPrompt] = useState('');
-  const [points, setPoints] = useState(2.5);
+  const [points, setPoints] = useState(defaultPoints !== undefined ? defaultPoints : 1.0);
   const [error, setError] = useState('');
 
   // Code Block state
@@ -78,7 +78,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
     if (initialData) {
       setType(initialData.type || 'MULTIPLE_CHOICE');
       setPrompt(initialData.prompt || '');
-      setPoints(initialData.points !== undefined ? initialData.points : 2.5);
+      setPoints(initialData.points !== undefined ? initialData.points : (defaultPoints !== undefined ? defaultPoints : 1.0));
 
       try {
         const qData = typeof initialData.questionData === 'string'
@@ -115,10 +115,10 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
         console.error('Error parsing initial question data', e);
       }
     } else {
-      // Reset defaults for a new question
+      // Reset defaults for a new question with the calculated default points
       setType('MULTIPLE_CHOICE');
       setPrompt('');
-      setPoints(2.5);
+      setPoints(defaultPoints !== undefined ? defaultPoints : 1.0);
       setCodeSnippet('def suma(a, b):\n    return a + b\n\nprint(suma(3, 4))');
       setCodeLanguage('python');
       setMcOptions(['', '', '', '']);
@@ -134,7 +134,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
       setOpenExpectedAnswer('');
       setError('');
     }
-  }, [initialData, open]);
+  }, [initialData, open, defaultPoints]);
 
   // Multiple Choice handlers
   const handleAddOption = () => {
