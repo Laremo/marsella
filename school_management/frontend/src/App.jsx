@@ -14,6 +14,8 @@ import TeacherRegisterPage from './pages/TeacherRegisterPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherExamEditorPage from './pages/TeacherExamEditorPage';
 import TeacherSubmissionsPage from './pages/TeacherSubmissionsPage';
+import TeacherGroupsPage from './pages/TeacherGroupsPage';
+import TeacherGroupDetailPage from './pages/TeacherGroupDetailPage';
 
 // Protected Route Component for Teachers
 const ProtectedRoute = ({ children }) => {
@@ -72,6 +74,22 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <TeacherSubmissionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/groups"
+                element={
+                  <ProtectedRoute>
+                    <TeacherGroupsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/groups/:id"
+                element={
+                  <ProtectedRoute>
+                    <TeacherGroupDetailPage />
                   </ProtectedRoute>
                 }
               />

@@ -19,6 +19,7 @@ import {
   Wifi as WifiIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -152,7 +153,15 @@ export default function Navbar() {
                   color="primary"
                   onClick={() => navigate('/teacher/dashboard')}
                 >
-                  Panel
+                  Exámenes
+                </Button>
+                <Button
+                  startIcon={<SchoolIcon />}
+                  variant={location.pathname.startsWith('/teacher/groups') ? 'contained' : 'text'}
+                  color="primary"
+                  onClick={() => navigate('/teacher/groups')}
+                >
+                  Gestión Escolar
                 </Button>
                 <Button
                   startIcon={<AddIcon />}
