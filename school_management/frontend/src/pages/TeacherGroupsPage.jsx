@@ -35,6 +35,8 @@ import {
   CalendarMonth as CalendarIcon,
   AutoStories as SubjectIcon,
   Tune as WeightsIcon,
+  Lightbulb as LightbulbIcon,
+  AutoFixHigh as AutoFixHighIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -61,6 +63,7 @@ export default function TeacherGroupsPage() {
   const [totalPeriods, setTotalPeriods] = useState(3);
   const [periodNames, setPeriodNames] = useState(['', '', '']);
   const [periodWeights, setPeriodWeights] = useState([33.33, 33.33, 33.34]);
+  const [lastEditedPeriodIndex, setLastEditedPeriodIndex] = useState(null);
   const [evaluationWeights, setEvaluationWeights] = useState([
     { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
     { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
@@ -91,6 +94,7 @@ export default function TeacherGroupsPage() {
   }, []);
 
   const calculateDefaultPeriodWeights = (num) => {
+    if (!num || num <= 0) return [];
     const base = Math.floor((100 / num) * 100) / 100;
     const remainder = Math.round((100 - base * num) * 100) / 100;
     const weights = [];
@@ -111,12 +115,38 @@ export default function TeacherGroupsPage() {
       return updated.slice(0, num);
     });
     setPeriodWeights(calculateDefaultPeriodWeights(num));
+    setLastEditedPeriodIndex(null);
   };
 
   const handlePeriodWeightChange = (index, value) => {
+    setLastEditedPeriodIndex(index);
     const updated = [...periodWeights];
-    updated[index] = parseFloat(value) || 0;
+    updated[index] = value === '' ? '' : (parseFloat(value) || 0);
     setPeriodWeights(updated);
+  };
+
+  const handleApplyPeriodSuggestion = (editedIdx) => {
+    const currentVal = parseFloat(periodWeights[editedIdx]) || 0;
+    const rem = Math.max(0, Math.round((100 - currentVal) * 100) / 100);
+    const otherCount = totalPeriods - 1;
+    if (otherCount <= 0) return;
+
+    const base = Math.floor((rem / otherCount) * 100) / 100;
+    const remainder = Math.round((rem - base * otherCount) * 100) / 100;
+
+    let otherIdx = 0;
+    const updated = periodWeights.map((w, i) => {
+      if (i === editedIdx) return currentVal;
+      const isLastOther = otherIdx === otherCount - 1;
+      otherIdx++;
+      return isLastOther ? Math.round((base + remainder) * 100) / 100 : base;
+    });
+    setPeriodWeights(updated);
+  };
+
+  const handleDistributePeriodsEqually = () => {
+    setPeriodWeights(calculateDefaultPeriodWeights(totalPeriods));
+    setLastEditedPeriodIndex(null);
   };
 
   const handleAddEvaluationWeight = () => {
@@ -153,7 +183,8 @@ export default function TeacherGroupsPage() {
     setSchoolYear('2026-2027');
     setTotalPeriods(3);
     setPeriodNames(['', '', '']);
-    setPeriodWeights([33.33, 33.33, 33.34]);
+    setPeriodWeights(calculateDefaultPeriodWeights(3));
+    setLastEditedPeriodIndex(null);
     setEvaluationWeights([
       { name: 'Exámenes', percentage: 40, category: 'EXAMEN' },
       { name: 'Tareas y Trabajos', percentage: 40, category: 'ACTIVIDAD' },
@@ -619,12 +650,27 @@ export default function TeacherGroupsPage() {
 
             {/* Períodos y Valor de cada Bloque */}
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', mb: 0.5 }}>
-                3. Bloques o Períodos y su Valor en la Calificación Total
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                Los bloques pueden valer más o menos de la calificación final del curso (ej. 30%, 30%, 40%). Deben sumar 100%.
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                    3. Bloques o Períodos y su Valor en la Calificación Total
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                    El total de cada bloque se calcula automáticamente con el número de bloques. Si modificas uno, el sistema te advertirá y sugerirá valores para los demás para completar el 100%.
+                  </Typography>
+                </Box>
+                {!editingGroup && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<AutoFixHighIcon />}
+                    onClick={handleDistributePeriodsEqually}
+                    sx={{ fontWeight: 700 }}
+                  >
+                    Distribuir Equitativamente
+                  </Button>
+                )}
+              </Box>
 
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={6}>
@@ -637,7 +683,7 @@ export default function TeacherGroupsPage() {
                     onChange={(e) => handleTotalPeriodsChange(e.target.value)}
                     inputProps={{ min: 1, max: 12 }}
                     disabled={!!editingGroup}
-                    helperText={editingGroup ? 'La cantidad de períodos no se puede cambiar una vez creado el grupo' : 'Indica cuántos períodos tendrá el curso (ej. 1, 2, 3, 4...)'}
+                    helperText={editingGroup ? 'La cantidad de períodos no se puede cambiar una vez creado el grupo' : 'Al cambiar la cantidad, los valores de los bloques se recalculan automáticamente.'}
                   />
                 </Grid>
               </Grid>
@@ -646,7 +692,16 @@ export default function TeacherGroupsPage() {
                 <Grid container spacing={1.5} sx={{ mb: 2 }}>
                   {Array.from({ length: totalPeriods }).map((_, idx) => (
                     <Grid item xs={12} sm={6} key={idx}>
-                      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          border: '1px solid',
+                          borderColor: lastEditedPeriodIndex === idx ? 'primary.main' : 'divider',
+                          borderRadius: '8px',
+                          bgcolor: lastEditedPeriodIndex === idx ? (isDark ? 'rgba(37,99,235,0.06)' : '#eff6ff') : 'transparent',
+                          transition: 'all 0.2s',
+                        }}
+                      >
                         <TextField
                           size="small"
                           fullWidth
@@ -676,14 +731,79 @@ export default function TeacherGroupsPage() {
                 </Grid>
               )}
 
-              {!editingGroup && (
-                <Alert
-                  severity={Math.round(totalPeriodWeight) === 100 ? 'success' : 'warning'}
-                  sx={{ py: 0.5, alignItems: 'center' }}
-                >
-                  Suma del valor de los bloques: <strong>{totalPeriodWeight}%</strong> {Math.round(totalPeriodWeight) === 100 ? '✓ (Correcto)' : '(Debe sumar exactamente 100%)'}
-                </Alert>
-              )}
+              {!editingGroup && (() => {
+                const roundedTotal = Math.round(totalPeriodWeight * 100) / 100;
+                const isExact = Math.round(roundedTotal) === 100;
+                const isOver = roundedTotal > 100;
+                const diff = Math.abs(Math.round((100 - roundedTotal) * 100) / 100);
+
+                return (
+                  <Box sx={{ mt: 1 }}>
+                    <Alert
+                      severity={isExact ? 'success' : isOver ? 'error' : 'warning'}
+                      sx={{ py: 0.5, alignItems: 'center' }}
+                    >
+                      {isExact ? (
+                        <>Suma del valor de los bloques: <strong>{roundedTotal}%</strong> ✓ (Correcto, 100% completado)</>
+                      ) : isOver ? (
+                        <>⚠️ <strong>Te estás pasando por +{diff}%</strong> (Suma actual: {roundedTotal}%). Debe sumar exactamente 100%.</>
+                      ) : (
+                        <>⚠️ <strong>Te falta {diff}%</strong> para completar el 100% (Suma actual: {roundedTotal}%).</>
+                      )}
+                    </Alert>
+
+                    {!isExact && totalPeriods > 1 && (
+                      <Box sx={{ mt: 1.5, p: 2, borderRadius: '8px', bgcolor: isDark ? 'rgba(37,99,235,0.1)' : '#eff6ff', border: '1px solid', borderColor: isDark ? 'rgba(37,99,235,0.3)' : '#bfdbfe' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <LightbulbIcon color="primary" fontSize="small" />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                            Sugerencia para balancear los demás bloques
+                          </Typography>
+                        </Box>
+
+                        <Typography variant="body2" sx={{ mb: 1.5 }}>
+                          {lastEditedPeriodIndex !== null ? (
+                            (() => {
+                              const val = parseFloat(periodWeights[lastEditedPeriodIndex]) || 0;
+                              const bName = periodNames[lastEditedPeriodIndex] || `Bloque ${lastEditedPeriodIndex + 1}`;
+                              const rem = 100 - val;
+                              if (rem < 0) {
+                                return `El ${bName} tiene ${val}%, lo cual supera el 100%. Reduce este porcentaje para poder sugerir valores para los otros campos.`;
+                              }
+                              const suggestedEach = (rem / (totalPeriods - 1)).toFixed(2);
+                              return `Dado que ${bName} vale ${val}%, puedes asignar ${suggestedEach}% a cada uno de los otros ${totalPeriods - 1} bloques para completar exactamente el 100%.`;
+                            })()
+                          ) : (
+                            `Puedes restablecer una distribución equitativa de ${(100 / totalPeriods).toFixed(1)}% para cada bloque.`
+                          )}
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {lastEditedPeriodIndex !== null && (parseFloat(periodWeights[lastEditedPeriodIndex]) || 0) < 100 && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="primary"
+                              onClick={() => handleApplyPeriodSuggestion(lastEditedPeriodIndex)}
+                              sx={{ fontWeight: 700 }}
+                            >
+                              Aplicar sugerencia a los otros bloques
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={handleDistributePeriodsEqually}
+                            sx={{ fontWeight: 600 }}
+                          >
+                            Distribuir equitativamente (Todos iguales)
+                          </Button>
+                        </Box>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })()}
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>

@@ -58,6 +58,8 @@ import {
   Star as StarIcon,
   Save as SaveIcon,
   Refresh as RefreshIcon,
+  Lightbulb as LightbulbIcon,
+  AutoFixHigh as AutoFixHighIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -143,6 +145,7 @@ export default function TeacherGroupDetailPage() {
   const [periodWeightsModalOpen, setPeriodWeightsModalOpen] = useState(false);
   const [editingPeriodWeights, setEditingPeriodWeights] = useState([]);
   const [periodWeightsError, setPeriodWeightsError] = useState('');
+  const [lastEditedPeriodBlockIndex, setLastEditedPeriodBlockIndex] = useState(null);
 
   // Tab 2: Attendance State
   const [attendanceDate, setAttendanceDate] = useState(dayjs().format('YYYY-MM-DD'));
@@ -426,16 +429,75 @@ export default function TeacherGroupDetailPage() {
     }
   };
 
+  const calculateDefaultPeriodWeights = (num) => {
+    if (!num || num <= 0) return [];
+    const base = Math.floor((100 / num) * 100) / 100;
+    const remainder = Math.round((100 - base * num) * 100) / 100;
+    const weights = [];
+    for (let i = 0; i < num; i++) {
+      weights.push(i === num - 1 ? Math.round((base + remainder) * 100) / 100 : base);
+    }
+    return weights;
+  };
+
   const handleOpenPeriodWeights = () => {
     setPeriodWeightsError('');
+    setLastEditedPeriodBlockIndex(null);
     if (group?.periods && group.periods.length > 0) {
-      setEditingPeriodWeights(group.periods.map((p) => ({
+      const defaultWeights = calculateDefaultPeriodWeights(group.periods.length);
+      const allAre100 = group.periods.every((p) => p.periodWeight === 100 || p.periodWeight === null || p.periodWeight === undefined);
+
+      setEditingPeriodWeights(group.periods.map((p, idx) => ({
         id: p.id,
         name: p.name,
-        periodWeight: p.periodWeight !== undefined && p.periodWeight !== null ? p.periodWeight : 100,
+        periodWeight: (allAre100 && group.periods.length > 1)
+          ? defaultWeights[idx]
+          : (p.periodWeight !== undefined && p.periodWeight !== null ? p.periodWeight : defaultWeights[idx]),
       })));
     }
     setPeriodWeightsModalOpen(true);
+  };
+
+  const handleBlockWeightChange = (index, value) => {
+    setLastEditedPeriodBlockIndex(index);
+    const updated = [...editingPeriodWeights];
+    updated[index] = {
+      ...updated[index],
+      periodWeight: value === '' ? '' : (parseFloat(value) || 0),
+    };
+    setEditingPeriodWeights(updated);
+  };
+
+  const handleApplyBlockSuggestion = (editedIdx) => {
+    const currentVal = parseFloat(editingPeriodWeights[editedIdx]?.periodWeight) || 0;
+    const rem = Math.max(0, Math.round((100 - currentVal) * 100) / 100);
+    const otherCount = editingPeriodWeights.length - 1;
+    if (otherCount <= 0) return;
+
+    const base = Math.floor((rem / otherCount) * 100) / 100;
+    const remainder = Math.round((rem - base * otherCount) * 100) / 100;
+
+    let otherIdx = 0;
+    const updated = editingPeriodWeights.map((pw, i) => {
+      if (i === editedIdx) return pw;
+      const isLastOther = otherIdx === otherCount - 1;
+      otherIdx++;
+      return {
+        ...pw,
+        periodWeight: isLastOther ? Math.round((base + remainder) * 100) / 100 : base,
+      };
+    });
+    setEditingPeriodWeights(updated);
+  };
+
+  const handleDistributeBlocksEqually = () => {
+    const defaultWeights = calculateDefaultPeriodWeights(editingPeriodWeights.length);
+    const updated = editingPeriodWeights.map((pw, idx) => ({
+      ...pw,
+      periodWeight: defaultWeights[idx],
+    }));
+    setEditingPeriodWeights(updated);
+    setLastEditedPeriodBlockIndex(null);
   };
 
   const handleSavePeriodWeights = async () => {
@@ -1648,13 +1710,39 @@ export default function TeacherGroupDetailPage() {
         <DialogContent dividers>
           {periodWeightsError && <Alert severity="error" sx={{ mb: 2 }}>{periodWeightsError}</Alert>}
 
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-            Define qué porcentaje de la calificación total del curso / año representa cada bloque (ej. 30%, 30%, 40%). Deben sumar 100%.
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Define qué porcentaje de la calificación total del curso / año representa cada bloque (ej. 30%, 30%, 40%). Deben sumar 100%.
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AutoFixHighIcon />}
+              onClick={handleDistributeBlocksEqually}
+              sx={{ fontWeight: 700 }}
+            >
+              Distribuir Equitativamente
+            </Button>
+          </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, my: 1.5 }}>
             {editingPeriodWeights.map((pw, idx) => (
-              <Box key={pw.id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box
+                key={pw.id}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  p: 1.5,
+                  borderRadius: '8px',
+                  border: '1px solid',
+                  borderColor: lastEditedPeriodBlockIndex === idx ? 'primary.main' : 'divider',
+                  bgcolor: lastEditedPeriodBlockIndex === idx ? (isDark ? 'rgba(37,99,235,0.06)' : '#eff6ff') : 'transparent',
+                  transition: 'all 0.2s',
+                }}
+              >
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, minWidth: 140 }}>
                   {pw.name}:
                 </Typography>
@@ -1665,11 +1753,7 @@ export default function TeacherGroupDetailPage() {
                   type="number"
                   inputProps={{ min: 0, max: 100, step: 0.5 }}
                   value={pw.periodWeight !== undefined && pw.periodWeight !== null ? pw.periodWeight : ''}
-                  onChange={(e) => {
-                    const updated = [...editingPeriodWeights];
-                    updated[idx].periodWeight = parseFloat(e.target.value) || 0;
-                    setEditingPeriodWeights(updated);
-                  }}
+                  onChange={(e) => handleBlockWeightChange(idx, e.target.value)}
                 />
               </Box>
             ))}
@@ -1677,10 +1761,76 @@ export default function TeacherGroupDetailPage() {
 
           {(() => {
             const sum = editingPeriodWeights.reduce((s, p) => s + (parseFloat(p.periodWeight) || 0), 0);
+            const roundedTotal = Math.round(sum * 100) / 100;
+            const isExact = Math.round(roundedTotal) === 100;
+            const isOver = roundedTotal > 100;
+            const diff = Math.abs(Math.round((100 - roundedTotal) * 100) / 100);
+
             return (
-              <Alert severity={Math.round(sum) === 100 ? 'success' : 'warning'} sx={{ mt: 2 }}>
-                Suma total: <strong>{sum}%</strong> {Math.round(sum) === 100 ? '✓ (Correcto)' : '(Debe sumar 100%)'}
-              </Alert>
+              <Box sx={{ mt: 2 }}>
+                <Alert
+                  severity={isExact ? 'success' : isOver ? 'error' : 'warning'}
+                  sx={{ py: 0.5, alignItems: 'center' }}
+                >
+                  {isExact ? (
+                    <>Suma total: <strong>{roundedTotal}%</strong> ✓ (Correcto, 100% completado)</>
+                  ) : isOver ? (
+                    <>⚠️ <strong>Te estás pasando por +{diff}%</strong> (Suma actual: {roundedTotal}%). Debe sumar exactamente 100%.</>
+                  ) : (
+                    <>⚠️ <strong>Te falta {diff}%</strong> para completar el 100% (Suma actual: {roundedTotal}%).</>
+                  )}
+                </Alert>
+
+                {!isExact && editingPeriodWeights.length > 1 && (
+                  <Box sx={{ mt: 1.5, p: 2, borderRadius: '8px', bgcolor: isDark ? 'rgba(37,99,235,0.1)' : '#eff6ff', border: '1px solid', borderColor: isDark ? 'rgba(37,99,235,0.3)' : '#bfdbfe' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <LightbulbIcon color="primary" fontSize="small" />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                        Sugerencia para balancear los demás bloques
+                      </Typography>
+                    </Box>
+
+                    <Typography variant="body2" sx={{ mb: 1.5 }}>
+                      {lastEditedPeriodBlockIndex !== null && editingPeriodWeights[lastEditedPeriodBlockIndex] ? (
+                        (() => {
+                          const val = parseFloat(editingPeriodWeights[lastEditedPeriodBlockIndex].periodWeight) || 0;
+                          const bName = editingPeriodWeights[lastEditedPeriodBlockIndex].name || `Bloque ${lastEditedPeriodBlockIndex + 1}`;
+                          const rem = 100 - val;
+                          if (rem < 0) {
+                            return `El ${bName} tiene ${val}%, lo cual supera el 100%. Reduce este porcentaje para poder sugerir valores válidos para los otros bloques.`;
+                          }
+                          const suggestedEach = (rem / (editingPeriodWeights.length - 1)).toFixed(2);
+                          return `Dado que ${bName} vale ${val}%, puedes asignar ${suggestedEach}% a cada uno de los otros ${editingPeriodWeights.length - 1} bloques para completar exactamente el 100%.`;
+                        })()
+                      ) : (
+                        `Puedes restablecer una distribución equitativa de ${(100 / editingPeriodWeights.length).toFixed(1)}% para cada bloque.`
+                      )}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {lastEditedPeriodBlockIndex !== null && (parseFloat(editingPeriodWeights[lastEditedPeriodBlockIndex]?.periodWeight) || 0) < 100 && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handleApplyBlockSuggestion(lastEditedPeriodBlockIndex)}
+                          sx={{ fontWeight: 700 }}
+                        >
+                          Aplicar sugerencia a los otros bloques
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={handleDistributeBlocksEqually}
+                        sx={{ fontWeight: 600 }}
+                      >
+                        Distribuir equitativamente (Todos iguales)
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             );
           })()}
         </DialogContent>
