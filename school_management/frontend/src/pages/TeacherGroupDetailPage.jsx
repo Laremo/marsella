@@ -89,6 +89,24 @@ const formatClientStudentName = (raw) => {
   return capitalizeWords(trimmed);
 };
 
+const getApiErrorMessage = (err, defaultMsg = 'Ocurrió un error inesperado') => {
+  if (!err) return defaultMsg;
+  const res = err.response;
+  if (!res) return err.message || defaultMsg;
+  if (res.data) {
+    if (typeof res.data === 'string') return res.data;
+    if (res.data.error) return res.data.error;
+    if (res.data.message) return res.data.message;
+    if (res.data.errors && typeof res.data.errors === 'object') {
+      const messages = Object.entries(res.data.errors)
+        .map(([field, msg]) => `${field}: ${msg}`)
+        .join(', ');
+      return messages || defaultMsg;
+    }
+  }
+  return res.statusText || defaultMsg;
+};
+
 export default function TeacherGroupDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -99,8 +117,12 @@ export default function TeacherGroupDetailPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState(null);
   const [currentTab, setCurrentTab] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [snack, setSnack] = useState('');
+  const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
   const [error, setError] = useState('');
+
+  const showSnack = (message, severity = 'info') => {
+    setSnack({ open: true, message, severity });
+  };
 
   // Tab 0: Students State
   const [students, setStudents] = useState([]);
@@ -117,8 +139,10 @@ export default function TeacherGroupDetailPage() {
   // Tab 1: Group Evaluation Weights & Period Weights State
   const [groupWeightsModalOpen, setGroupWeightsModalOpen] = useState(false);
   const [editingGroupWeights, setEditingGroupWeights] = useState([]);
+  const [groupWeightsError, setGroupWeightsError] = useState('');
   const [periodWeightsModalOpen, setPeriodWeightsModalOpen] = useState(false);
   const [editingPeriodWeights, setEditingPeriodWeights] = useState([]);
+  const [periodWeightsError, setPeriodWeightsError] = useState('');
 
   // Tab 2: Attendance State
   const [attendanceDate, setAttendanceDate] = useState(dayjs().format('YYYY-MM-DD'));
@@ -348,6 +372,7 @@ export default function TeacherGroupDetailPage() {
 
   // Tab 1 Handlers (Group Evaluation Weights & Period Weights)
   const handleOpenGroupWeights = () => {
+    setGroupWeightsError('');
     if (group?.evaluationWeights && group.evaluationWeights.length > 0) {
       setEditingGroupWeights(group.evaluationWeights.map((w) => ({
         id: w.id,
@@ -366,14 +391,19 @@ export default function TeacherGroupDetailPage() {
   };
 
   const handleSaveGroupWeights = async () => {
+    setGroupWeightsError('');
     const total = editingGroupWeights.reduce((s, w) => s + (parseFloat(w.percentage) || 0), 0);
     if (Math.round(total) !== 100) {
-      setSnack(`Las ponderaciones deben sumar 100%. Actualmente suman ${total}%.`);
+      const msg = `Las ponderaciones deben sumar 100%. Actualmente suman ${total}%.`;
+      setGroupWeightsError(msg);
+      showSnack(msg, 'error');
       return;
     }
     for (const w of editingGroupWeights) {
       if (!w.name || !w.name.trim()) {
-        setSnack('Todas las ponderaciones deben tener un nombre.');
+        const msg = 'Todas las ponderaciones deben tener un nombre.';
+        setGroupWeightsError(msg);
+        showSnack(msg, 'error');
         return;
       }
     }
@@ -386,15 +416,18 @@ export default function TeacherGroupDetailPage() {
         })),
       });
       setGroupWeightsModalOpen(false);
-      setSnack('Ponderaciones del grupo guardadas con éxito.');
+      showSnack('Ponderaciones del grupo guardadas con éxito.', 'success');
       fetchGroupDetails();
       if (selectedPeriodId) fetchGradebook(selectedPeriodId);
     } catch (err) {
-      setSnack(err.response?.data?.error || 'Error al guardar ponderaciones.');
+      const msg = getApiErrorMessage(err, 'Error al guardar ponderaciones.');
+      setGroupWeightsError(msg);
+      showSnack(msg, 'error');
     }
   };
 
   const handleOpenPeriodWeights = () => {
+    setPeriodWeightsError('');
     if (group?.periods && group.periods.length > 0) {
       setEditingPeriodWeights(group.periods.map((p) => ({
         id: p.id,
@@ -406,9 +439,12 @@ export default function TeacherGroupDetailPage() {
   };
 
   const handleSavePeriodWeights = async () => {
+    setPeriodWeightsError('');
     const total = editingPeriodWeights.reduce((s, p) => s + (parseFloat(p.periodWeight) || 0), 0);
     if (Math.round(total) !== 100) {
-      setSnack(`Los valores de los bloques deben sumar 100%. Actualmente suman ${total}%.`);
+      const msg = `Los valores de los bloques deben sumar 100%. Actualmente suman ${total}%.`;
+      setPeriodWeightsError(msg);
+      showSnack(msg, 'error');
       return;
     }
     try {
@@ -419,11 +455,13 @@ export default function TeacherGroupDetailPage() {
         })),
       });
       setPeriodWeightsModalOpen(false);
-      setSnack('Valores de los bloques guardados con éxito.');
+      showSnack('Valores de los bloques guardados con éxito.', 'success');
       fetchGroupDetails();
       if (gradebookViewMode === 'annual') fetchAnnualGradebook();
     } catch (err) {
-      setSnack(err.response?.data?.error || 'Error al guardar valores de los bloques.');
+      const msg = getApiErrorMessage(err, 'Error al guardar valores de los bloques.');
+      setPeriodWeightsError(msg);
+      showSnack(msg, 'error');
     }
   };
 
@@ -433,10 +471,10 @@ export default function TeacherGroupDetailPage() {
         isCurrent: true,
       });
       setSelectedPeriodId(periodId);
-      setSnack('Período marcado como activo.');
+      showSnack('Período marcado como activo.', 'success');
       fetchGroupDetails();
     } catch (err) {
-      setSnack('Error al cambiar período activo.');
+      showSnack(getApiErrorMessage(err, 'Error al cambiar período activo.'), 'error');
     }
   };
 
@@ -1501,6 +1539,8 @@ export default function TeacherGroupDetailPage() {
       <Dialog open={groupWeightsModalOpen} onClose={() => setGroupWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>Ponderaciones del Grupo</DialogTitle>
         <DialogContent dividers>
+          {groupWeightsError && <Alert severity="error" sx={{ mb: 2 }}>{groupWeightsError}</Alert>}
+
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
             Estas ponderaciones se aplican a <strong>todos los bloques</strong> del grupo. Puedes definir qué aspectos evaluar (ej. Exámenes, Tareas, Libreta, Asistencia) y su porcentaje. Deben sumar 100%.
           </Typography>
@@ -1606,6 +1646,8 @@ export default function TeacherGroupDetailPage() {
       <Dialog open={periodWeightsModalOpen} onClose={() => setPeriodWeightsModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle sx={{ fontWeight: 800 }}>Valor de cada Bloque en la Calificación Final</DialogTitle>
         <DialogContent dividers>
+          {periodWeightsError && <Alert severity="error" sx={{ mb: 2 }}>{periodWeightsError}</Alert>}
+
           <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
             Define qué porcentaje de la calificación total del curso / año representa cada bloque (ej. 30%, 30%, 40%). Deben sumar 100%.
           </Typography>
@@ -1874,7 +1916,19 @@ export default function TeacherGroupDetailPage() {
       </Dialog>
 
       {/* Snackbar */}
-      <Snackbar open={!!snack} autoHideDuration={3500} onClose={() => setSnack('')} message={snack} />
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={4500}
+        onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+      >
+        <Alert
+          onClose={() => setSnack((prev) => ({ ...prev, open: false }))}
+          severity={snack.severity || 'info'}
+          sx={{ width: '100%', borderRadius: '8px', fontWeight: 600 }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

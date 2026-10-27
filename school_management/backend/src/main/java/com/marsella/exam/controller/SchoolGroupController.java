@@ -9,6 +9,9 @@ import com.marsella.exam.service.SchoolGroupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +28,7 @@ import java.util.NoSuchElementException;
 public class SchoolGroupController {
 
     private final SchoolGroupService groupService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public ResponseEntity<List<SchoolGroupResponse>> getGroups(@AuthenticationPrincipal User teacher) {
@@ -93,23 +97,31 @@ public class SchoolGroupController {
     public ResponseEntity<?> updateGroupWeights(
             @AuthenticationPrincipal User teacher,
             @PathVariable Long id,
-            @RequestBody List<com.marsella.exam.dto.GroupEvaluationWeightDto> weights) {
-        try {
-            return ResponseEntity.ok(groupService.updateGroupEvaluationWeights(teacher.getId(), id, weights));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+            @RequestBody JsonNode node) {
+        List<com.marsella.exam.dto.GroupEvaluationWeightDto> weights;
+        if (node.isArray()) {
+            weights = objectMapper.convertValue(node, new TypeReference<List<com.marsella.exam.dto.GroupEvaluationWeightDto>>() {});
+        } else if (node.has("weights") && node.get("weights").isArray()) {
+            weights = objectMapper.convertValue(node.get("weights"), new TypeReference<List<com.marsella.exam.dto.GroupEvaluationWeightDto>>() {});
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Se esperaba una lista de ponderaciones o un objeto con la propiedad 'weights'"));
         }
+        return ResponseEntity.ok(groupService.updateGroupEvaluationWeights(teacher.getId(), id, weights));
     }
 
     @PutMapping("/{id}/periods-weights")
     public ResponseEntity<?> updatePeriodsWeights(
             @AuthenticationPrincipal User teacher,
             @PathVariable Long id,
-            @RequestBody List<AcademicPeriodDto> periodDtos) {
-        try {
-            return ResponseEntity.ok(groupService.updatePeriodsWeights(teacher.getId(), id, periodDtos));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+            @RequestBody JsonNode node) {
+        List<AcademicPeriodDto> periodDtos;
+        if (node.isArray()) {
+            periodDtos = objectMapper.convertValue(node, new TypeReference<List<AcademicPeriodDto>>() {});
+        } else if (node.has("periods") && node.get("periods").isArray()) {
+            periodDtos = objectMapper.convertValue(node.get("periods"), new TypeReference<List<AcademicPeriodDto>>() {});
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Se esperaba una lista de períodos o un objeto con la propiedad 'periods'"));
         }
+        return ResponseEntity.ok(groupService.updatePeriodsWeights(teacher.getId(), id, periodDtos));
     }
 }
