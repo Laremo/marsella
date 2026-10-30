@@ -46,28 +46,57 @@ Sistema web interactivo para creación, aplicación y evaluación automática de
 
 ---
 
-## 🚀 Puesta en Marcha Rápida (Docker)
+## 🚀 Modos de Ejecución: Desarrollo (Real-Time) vs Producción
 
-### Prerrequisitos
-- Tener instalado **Docker** y **Docker Compose** en la computadora del profesor/servidor.
+El proyecto soporta configuración segura mediante `.env` y dos modalidades de ejecución según tus necesidades:
 
-### 1. Iniciar los contenedores
-Abre una terminal en la carpeta `general` y ejecuta:
+### ⚙️ Configuración Inicial de Secretos (.env)
+1. Copia el archivo de ejemplo para crear tu `.env`:
+   ```bash
+   copy .env.example .env     # En Windows
+   cp .env.example .env       # En Linux / Mac
+   ```
+2. Edita `.env` para cambiar tus contraseñas y claves JWT según sea necesario. El archivo `.env` está protegido e ignorado por Git.
 
+---
+
+### 🔥 Modo DESARROLLO (Cambios en Tiempo Real sin Rebuilds)
+En este modo, Vite corre con **Hot Module Replacement (HMR)** y monta directamente los archivos de tu proyecto. **Cualquier cambio que guardes en el frontend se refleja instantáneamente en el navegador** en milisegundos, sin esperar a reconstruir la imagen de Docker.
+
+**Opción A: Con scripts automáticos (Recomendado en Windows):**
+- Doble clic en `dev.bat` o ejecuta en PowerShell `./dev.ps1`
+- O con npm:
+  ```bash
+  npm run dev
+  ```
+
+**Opción B: Con Docker Compose directamente:**
 ```bash
-cd general
-docker compose up --build -d
+docker compose -f docker-compose.dev.yml up
 ```
+- **Frontend con Live Reload:** [http://localhost:3000](http://localhost:3000)
+- **Backend API:** [http://localhost:8080/api](http://localhost:8080/api)
 
-Docker descargará y construirá automáticamente:
-1. `marsella_exam_postgres` (PostgreSQL 16)
-2. `marsella_exam_backend` (Spring Boot API en puerto 8080)
-3. `marsella_exam_frontend` (React + Nginx en puerto 80 y 3000)
+---
 
-### 2. Verificar el estado
+### 🏭 Modo PRODUCCIÓN (Build Optimizado con Nginx)
+Compila el bundle de producción optimizado y empaquetado para distribución y uso de los alumnos:
+
+**Opción A: Con scripts automáticos (Recomendado en Windows):**
+- Doble clic en `prod.bat` o ejecuta en PowerShell `./prod.ps1`
+- O con npm:
+  ```bash
+  npm run prod
+  ```
+
+**Opción B: Con Docker Compose directamente:**
 ```bash
-docker compose ps
+docker compose up -d --build
 ```
+- **Frontend en Producción:** [http://localhost](http://localhost) (y puerto 3000)
+- **Backend API:** [http://localhost:8080/api](http://localhost:8080/api)
+
+---
 
 ---
 

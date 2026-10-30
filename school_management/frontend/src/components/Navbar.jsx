@@ -210,7 +210,7 @@ export default function Navbar() {
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => navigate('/teacher/login')}
+                  onClick={() => navigate(isAuthenticated ? '/teacher/dashboard' : '/teacher/login')}
                 >
                   Docentes
                 </Button>
