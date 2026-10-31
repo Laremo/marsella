@@ -618,7 +618,7 @@ export default function TeacherGroupsPage() {
                         fullWidth
                         label="Porcentaje (%)"
                         type="number"
-                        inputProps={{ min: 1, max: 100 }}
+                        inputProps={{ min: 0, max: 100, step: 'any' }}
                         value={ew.percentage}
                         onChange={(e) => handleEvaluationWeightChange(idx, 'percentage', e.target.value)}
                         required
@@ -720,7 +720,7 @@ export default function TeacherGroupsPage() {
                           fullWidth
                           label={`Valor en Calificación Final (%)`}
                           type="number"
-                          inputProps={{ min: 0, max: 100, step: 0.5 }}
+                          inputProps={{ min: 0, max: 100, step: 'any' }}
                           value={periodWeights[idx] !== undefined ? periodWeights[idx] : ''}
                           onChange={(e) => handlePeriodWeightChange(idx, e.target.value)}
                           helperText={`¿Cuánto vale este bloque para la calificación anual/final?`}

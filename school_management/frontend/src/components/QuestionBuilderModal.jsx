@@ -318,7 +318,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
               size="small"
               type="number"
               label="Valor en Puntos"
-              inputProps={{ min: 0, step: 0.5 }}
+              inputProps={{ min: 0, step: 'any' }}
               value={points}
               onChange={(e) => setPoints(e.target.value)}
             />

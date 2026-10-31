@@ -62,7 +62,6 @@ export default function Navbar() {
     >
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ justifyContent: 'space-between', py: 1.2 }}>
-          {/* Logo with Cheese Icon: EVALUACIONES / Laremo */}
           <Box
             sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 1.5 }}
             onClick={() => navigate('/')}
@@ -96,7 +95,7 @@ export default function Navbar() {
                   fontSize: '1.15rem',
                 }}
               >
-                EVALUACIONES
+                Evaluaciones
               </Typography>
               <Typography
                 variant="caption"
@@ -110,7 +109,6 @@ export default function Navbar() {
                   fontSize: '0.82rem',
                 }}
               >
-                Laremo
               </Typography>
             </Box>
           </Box>

@@ -1648,7 +1648,7 @@ export default function TeacherGroupDetailPage() {
                     fullWidth
                     label="%"
                     type="number"
-                    inputProps={{ min: 1, max: 100 }}
+                    inputProps={{ min: 0, max: 100, step: 'any' }}
                     value={ew.percentage}
                     onChange={(e) => {
                       const updated = [...editingGroupWeights];
@@ -1751,7 +1751,7 @@ export default function TeacherGroupDetailPage() {
                   fullWidth
                   label="Valor en Calificación Final (%)"
                   type="number"
-                  inputProps={{ min: 0, max: 100, step: 0.5 }}
+                  inputProps={{ min: 0, max: 100, step: 'any' }}
                   value={pw.periodWeight !== undefined && pw.periodWeight !== null ? pw.periodWeight : ''}
                   onChange={(e) => handleBlockWeightChange(idx, e.target.value)}
                 />
@@ -1951,7 +1951,7 @@ export default function TeacherGroupDetailPage() {
                             )
                           );
                         }}
-                        inputProps={{ min: 0, max: gradingActivity?.maxPoints || 10, step: 0.5 }}
+                        inputProps={{ min: 0, max: gradingActivity?.maxPoints || 10, step: 'any' }}
                       />
                     </TableCell>
                     <TableCell>
@@ -2055,7 +2055,7 @@ export default function TeacherGroupDetailPage() {
               value={incDeduction}
               onChange={(e) => setIncDeduction(e.target.value)}
               helperText="Puntos que se restarán a la calificación final del período (ej: 0.5)"
-              inputProps={{ min: 0, step: 0.1 }}
+              inputProps={{ min: 0, step: 'any' }}
             />
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>

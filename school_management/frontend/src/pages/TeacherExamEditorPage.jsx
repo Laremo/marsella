@@ -498,7 +498,7 @@ export default function TeacherExamEditorPage() {
                       const val = parseFloat(e.target.value) || 0;
                       setTargetTotalPoints(val);
                     }}
-                    inputProps={{ min: 1, step: 0.5 }}
+                    inputProps={{ min: 1, step: 'any' }}
                     helperText="El sistema distribuirá automáticamente este total conforme agregues o quites preguntas."
                   />
                 </Box>
