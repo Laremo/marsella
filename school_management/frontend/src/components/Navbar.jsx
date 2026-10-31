@@ -41,6 +41,14 @@ export default function Navbar() {
   const royalBlue = '#2563EB';
   const royalBlueHover = '#1D4ED8';
 
+  const handleTeacherAccess = () => {
+    if (isAuthenticated) {
+      navigate('/teacher/dashboard');
+    } else {
+      navigate('/teacher/login');
+    }
+  };
+
   return (
     <AppBar
       position="sticky"
@@ -210,7 +218,7 @@ export default function Navbar() {
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => navigate(isAuthenticated ? '/teacher/dashboard' : '/teacher/login')}
+                  onClick={handleTeacherAccess}
                 >
                   Docentes
                 </Button>
