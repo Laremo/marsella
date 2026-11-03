@@ -1,6 +1,8 @@
-limite = 6
-contador = 0
 
-while contador < limite:
-    contador = contador + 1
+n = 6
+contador = 1
+
+while(contador <= n):
     print(f"Me he ejecutado {contador} veces")
+    contador = contador + 1
+
