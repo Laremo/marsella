@@ -17,38 +17,55 @@ import {
 } from '@mui/icons-material';
 import TeacherSidebar from './TeacherSidebar';
 import { useColorTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
 
-const SIDEBAR_WIDTH = 260;
+const EXPANDED_WIDTH = 260;
+const COLLAPSED_WIDTH = 76;
 
 export default function TeacherLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { toggleTheme } = useColorTheme();
-  const { user } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleToggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
+  const currentSidebarWidth = isCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Desktop Persistent Sidebar */}
+      {/* Desktop Persistent Collapsible Sidebar */}
       {!isMobile && (
         <Box
           component="nav"
           sx={{
-            width: SIDEBAR_WIDTH,
+            width: currentSidebarWidth,
             flexShrink: 0,
             position: 'sticky',
             top: 0,
             height: '100vh',
             zIndex: theme.zIndex.appBar,
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          <TeacherSidebar />
+          <TeacherSidebar
+            isCollapsed={isCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+          />
         </Box>
       )}
 
@@ -63,12 +80,12 @@ export default function TeacherLayout({ children }) {
             display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: SIDEBAR_WIDTH,
+              width: EXPANDED_WIDTH,
               bgcolor: 'background.paper',
             },
           }}
         >
-          <TeacherSidebar onClose={handleDrawerToggle} />
+          <TeacherSidebar onClose={handleDrawerToggle} isCollapsed={false} />
         </Drawer>
       )}
 

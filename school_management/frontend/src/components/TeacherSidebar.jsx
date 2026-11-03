@@ -10,7 +10,6 @@ import {
   Button,
   IconButton,
   Divider,
-  Chip,
   Tooltip,
   useTheme,
 } from '@mui/material';
@@ -24,13 +23,18 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   Wifi as WifiIcon,
-  Person as PersonIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useColorTheme } from '../context/ThemeContext';
 
-export default function TeacherSidebar({ onClose }) {
+export default function TeacherSidebar({
+  onClose,
+  isCollapsed = false,
+  onToggleCollapse,
+}) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { user, logout } = useAuth();
@@ -67,72 +71,103 @@ export default function TeacherSidebar({ onClose }) {
   return (
     <Box
       sx={{
-        width: 260,
+        width: isCollapsed ? 76 : 260,
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: isDark ? '#0f172a' : '#ffffff',
         borderRight: `1px solid ${theme.palette.divider}`,
-        transition: 'background-color 0.2s ease',
+        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease',
+        overflowX: 'hidden',
       }}
     >
-      {/* Brand & Mobile Close */}
+      {/* Brand & Collapse Toggle */}
       <Box
         sx={{
-          p: 2.5,
+          p: isCollapsed ? 1.5 : 2,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: isCollapsed ? 'center' : 'space-between',
           borderBottom: `1px solid ${theme.palette.divider}`,
+          minHeight: 65,
         }}
       >
         <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            cursor: 'pointer',
+            minWidth: 0,
+          }}
           onClick={() => handleNav('/teacher/dashboard')}
         >
           <Box
             sx={{
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               borderRadius: '10px',
               bgcolor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
               border: isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #FDE68A',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '22px',
+              fontSize: '20px',
               userSelect: 'none',
+              flexShrink: 0,
             }}
           >
             🧀
           </Box>
-          <Box>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                fontWeight: 900,
-                lineHeight: 1.1,
-                letterSpacing: '0.02em',
-                color: 'text.primary',
-              }}
-            >
-              Marsella
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'secondary.main',
-                fontWeight: 800,
-                display: 'block',
-                lineHeight: 1,
-                fontSize: '0.75rem',
-              }}
-            >
-              Panel Docente
-            </Typography>
-          </Box>
+          {!isCollapsed && (
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  letterSpacing: '0.02em',
+                  color: 'text.primary',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Marsella
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'secondary.main',
+                  fontWeight: 800,
+                  display: 'block',
+                  lineHeight: 1,
+                  fontSize: '0.75rem',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Panel Docente
+              </Typography>
+            </Box>
+          )}
         </Box>
 
+        {/* Collapse button on desktop */}
+        {onToggleCollapse && (
+          <Tooltip title={isCollapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral'}>
+            <IconButton
+              onClick={onToggleCollapse}
+              size="small"
+              sx={{
+                borderRadius: '8px',
+                display: { xs: 'none', md: 'inline-flex' },
+                bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+              }}
+            >
+              {isCollapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Mobile close button */}
         {onClose && (
           <IconButton onClick={onClose} size="small" sx={{ display: { md: 'none' } }}>
             <CloseIcon fontSize="small" />
@@ -140,94 +175,127 @@ export default function TeacherSidebar({ onClose }) {
         )}
       </Box>
 
-      {/* Primary Action Button */}
-      <Box sx={{ p: 2 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleNav('/teacher/exams/new')}
-          sx={{
-            py: 1.2,
-            borderRadius: '10px',
-            bgcolor: '#2563EB',
-            fontWeight: 800,
-            fontSize: '0.88rem',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
-            '&:hover': { bgcolor: '#1d4ed8' },
-          }}
-        >
-          Nuevo Examen
-        </Button>
+      {/* Primary Action Button ("+ Nuevo Examen") */}
+      <Box sx={{ p: isCollapsed ? 1.5 : 2, display: 'flex', justifyContent: 'center' }}>
+        {isCollapsed ? (
+          <Tooltip title="Nuevo Examen" placement="right">
+            <IconButton
+              onClick={() => handleNav('/teacher/exams/new')}
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: '10px',
+                bgcolor: '#2563EB',
+                color: '#fff',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                '&:hover': { bgcolor: '#1d4ed8' },
+              }}
+            >
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleNav('/teacher/exams/new')}
+            sx={{
+              py: 1.2,
+              borderRadius: '10px',
+              bgcolor: '#2563EB',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+              '&:hover': { bgcolor: '#1d4ed8' },
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Nuevo Examen
+          </Button>
+        )}
       </Box>
 
       {/* Navigation List */}
-      <Box sx={{ flex: 1, px: 1.5, py: 1 }}>
-        <Typography
-          variant="caption"
-          sx={{
-            px: 1.5,
-            mb: 1,
-            display: 'block',
-            fontWeight: 800,
-            color: 'text.secondary',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            fontSize: '0.7rem',
-          }}
-        >
-          Navegación
-        </Typography>
+      <Box sx={{ flex: 1, px: 1, py: 1 }}>
+        {!isCollapsed && (
+          <Typography
+            variant="caption"
+            sx={{
+              px: 1.5,
+              mb: 1,
+              display: 'block',
+              fontWeight: 800,
+              color: 'text.secondary',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              fontSize: '0.7rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Navegación
+          </Typography>
+        )}
 
         <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
           {navItems.map((item) => {
             const active = item.isActive;
             return (
               <ListItem key={item.path} disablePadding>
-                <ListItemButton
-                  onClick={() => handleNav(item.path)}
-                  sx={{
-                    borderRadius: '10px',
-                    py: 1.2,
-                    px: 1.8,
-                    bgcolor: active
-                      ? isDark
-                        ? 'rgba(37, 99, 235, 0.15)'
-                        : '#eff6ff'
-                      : 'transparent',
-                    color: active ? '#2563EB' : 'text.primary',
-                    border: active
-                      ? `1px solid ${isDark ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe'}`
-                      : '1px solid transparent',
-                    fontWeight: active ? 800 : 600,
-                    transition: 'all 0.15s ease',
-                    '&:hover': {
+                <Tooltip
+                  title={isCollapsed ? item.label : ''}
+                  placement="right"
+                  disableHoverListener={!isCollapsed}
+                >
+                  <ListItemButton
+                    onClick={() => handleNav(item.path)}
+                    sx={{
+                      borderRadius: '10px',
+                      py: 1.2,
+                      px: isCollapsed ? 0 : 1.8,
+                      justifyContent: isCollapsed ? 'center' : 'flex-start',
                       bgcolor: active
                         ? isDark
-                          ? 'rgba(37, 99, 235, 0.2)'
-                          : '#e0edff'
-                        : isDark
-                        ? 'rgba(255, 255, 255, 0.04)'
-                        : 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 36,
-                      color: active ? '#2563EB' : 'text.secondary',
+                          ? 'rgba(37, 99, 235, 0.15)'
+                          : '#eff6ff'
+                        : 'transparent',
+                      color: active ? '#2563EB' : 'text.primary',
+                      border: active
+                        ? `1px solid ${isDark ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe'}`
+                        : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                      '&:hover': {
+                        bgcolor: active
+                          ? isDark
+                            ? 'rgba(37, 99, 235, 0.2)'
+                            : '#e0edff'
+                          : isDark
+                          ? 'rgba(255, 255, 255, 0.04)'
+                          : 'rgba(0, 0, 0, 0.04)',
+                      },
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      fontSize: '0.92rem',
-                      fontWeight: active ? 800 : 600,
-                    }}
-                  />
-                </ListItemButton>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: isCollapsed ? 'auto' : 36,
+                        justifyContent: 'center',
+                        color: active ? '#2563EB' : 'text.secondary',
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    {!isCollapsed && (
+                      <ListItemText
+                        primary={item.label}
+                        primaryTypographyProps={{
+                          fontSize: '0.92rem',
+                          fontWeight: active ? 800 : 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      />
+                    )}
+                  </ListItemButton>
+                </Tooltip>
               </ListItem>
             );
           })}
@@ -235,96 +303,96 @@ export default function TeacherSidebar({ onClose }) {
       </Box>
 
       {/* LAN Chip Status */}
-      <Box sx={{ px: 2, pb: 1.5 }}>
-        <Box
-          sx={{
-            p: 1.2,
-            borderRadius: '8px',
-            bgcolor: isDark ? 'rgba(22, 101, 52, 0.15)' : '#f0fdf4',
-            border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-          }}
-        >
-          <WifiIcon sx={{ fontSize: 16, color: isDark ? '#4ade80' : '#16a34a' }} />
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 800, color: isDark ? '#4ade80' : '#15803d', display: 'block', lineHeight: 1.1 }}
+      <Box sx={{ px: isCollapsed ? 1 : 2, pb: 1.5, display: 'flex', justifyContent: 'center' }}>
+        {isCollapsed ? (
+          <Tooltip title="Red LAN Escolar Activa" placement="right">
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: '8px',
+                bgcolor: isDark ? 'rgba(22, 101, 52, 0.15)' : '#f0fdf4',
+                border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isDark ? '#4ade80' : '#16a34a',
+              }}
             >
-              Red LAN Activa
-            </Typography>
-            <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
-              Servidor local escolar
-            </Typography>
+              <WifiIcon sx={{ fontSize: 18 }} />
+            </Box>
+          </Tooltip>
+        ) : (
+          <Box
+            sx={{
+              p: 1.2,
+              width: '100%',
+              borderRadius: '8px',
+              bgcolor: isDark ? 'rgba(22, 101, 52, 0.15)' : '#f0fdf4',
+              border: `1px solid ${isDark ? '#166534' : '#bbf7d0'}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <WifiIcon sx={{ fontSize: 16, color: isDark ? '#4ade80' : '#16a34a' }} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 800,
+                  color: isDark ? '#4ade80' : '#15803d',
+                  display: 'block',
+                  lineHeight: 1.1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Red LAN Activa
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                Servidor local escolar
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        )}
       </Box>
 
       <Divider />
 
       {/* Footer / Profile & Settings */}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1 }}>
-          <Box
-            sx={{
-              width: 34,
-              height: 34,
-              borderRadius: '8px',
-              bgcolor: isDark ? '#1e293b' : '#f1f5f9',
-              border: `1px solid ${theme.palette.divider}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'text.primary',
-              fontSize: '14px',
-              fontWeight: 800,
-              flexShrink: 0,
-            }}
-          >
-            {user?.fullName ? user.fullName[0].toUpperCase() : 'P'}
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              variant="body2"
+      {isCollapsed ? (
+        <Box
+          sx={{
+            p: 1.5,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 1.5,
+            bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
+          }}
+        >
+          <Tooltip title={`${user?.fullName || user?.username} (@${user?.username})`} placement="right">
+            <Box
               sx={{
-                fontWeight: 700,
-                lineHeight: 1.1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                width: 36,
+                height: 36,
+                borderRadius: '8px',
+                bgcolor: isDark ? '#1e293b' : '#f1f5f9',
+                border: `1px solid ${theme.palette.divider}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.primary',
+                fontSize: '14px',
+                fontWeight: 800,
+                cursor: 'pointer',
               }}
             >
-              {user?.fullName || user?.username}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                display: 'block',
-                lineHeight: 1,
-                fontSize: '0.7rem',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              @{user?.username}
-            </Typography>
-          </Box>
-        </Box>
+              {user?.fullName ? user.fullName[0].toUpperCase() : 'P'}
+            </Box>
+          </Tooltip>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-          <Tooltip title={isDark ? 'Modo claro' : 'Modo oscuro'}>
+          <Tooltip title={isDark ? 'Modo claro' : 'Modo oscuro'} placement="right">
             <IconButton onClick={toggleTheme} size="small" sx={{ borderRadius: '8px' }}>
               {isDark ? (
                 <LightModeIcon sx={{ fontSize: 18, color: '#FBBF24' }} />
@@ -334,7 +402,7 @@ export default function TeacherSidebar({ onClose }) {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Cerrar sesión">
+          <Tooltip title="Cerrar sesión" placement="right">
             <IconButton
               onClick={() => {
                 logout();
@@ -348,7 +416,92 @@ export default function TeacherSidebar({ onClose }) {
             </IconButton>
           </Tooltip>
         </Box>
-      </Box>
+      ) : (
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            bgcolor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1 }}>
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: '8px',
+                bgcolor: isDark ? '#1e293b' : '#f1f5f9',
+                border: `1px solid ${theme.palette.divider}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.primary',
+                fontSize: '14px',
+                fontWeight: 800,
+                flexShrink: 0,
+              }}
+            >
+              {user?.fullName ? user.fullName[0].toUpperCase() : 'P'}
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {user?.fullName || user?.username}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  display: 'block',
+                  lineHeight: 1,
+                  fontSize: '0.7rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                @{user?.username}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+            <Tooltip title={isDark ? 'Modo claro' : 'Modo oscuro'}>
+              <IconButton onClick={toggleTheme} size="small" sx={{ borderRadius: '8px' }}>
+                {isDark ? (
+                  <LightModeIcon sx={{ fontSize: 18, color: '#FBBF24' }} />
+                ) : (
+                  <DarkModeIcon sx={{ fontSize: 18, color: '#1B254B' }} />
+                )}
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Cerrar sesión">
+              <IconButton
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                color="error"
+                size="small"
+                sx={{ borderRadius: '8px' }}
+              >
+                <LogoutIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }
