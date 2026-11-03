@@ -18,6 +18,11 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true,
         },
+        '/ws': {
+          target: backendUrl,
+          ws: true,
+          changeOrigin: true,
+        },
       },
     },
   };

@@ -16,6 +16,10 @@ import TeacherExamEditorPage from './pages/TeacherExamEditorPage';
 import TeacherSubmissionsPage from './pages/TeacherSubmissionsPage';
 import TeacherGroupsPage from './pages/TeacherGroupsPage';
 import TeacherGroupDetailPage from './pages/TeacherGroupDetailPage';
+import TeacherQuizzesPage from './pages/TeacherQuizzesPage';
+import TeacherQuizEditorPage from './pages/TeacherQuizEditorPage';
+import TeacherQuizHostPage from './pages/TeacherQuizHostPage';
+import StudentQuizRoomPage from './pages/StudentQuizRoomPage';
 
 // Protected Route Component for Teachers
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +53,8 @@ export default function App() {
               <Route path="/" element={<StudentJoinPage />} />
               <Route path="/exam/:submissionId" element={<StudentExamRoomPage />} />
               <Route path="/exam/finished/:submissionId" element={<StudentExamFinishedPage />} />
+              <Route path="/quiz/live" element={<StudentQuizRoomPage />} />
+              <Route path="/quiz/live/:pin" element={<StudentQuizRoomPage />} />
 
               {/* Teacher Entry Point */}
               <Route
@@ -124,6 +130,38 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <TeacherGroupDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/quizzes"
+                element={
+                  <ProtectedRoute>
+                    <TeacherQuizzesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/quizzes/new"
+                element={
+                  <ProtectedRoute>
+                    <TeacherQuizEditorPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/quizzes/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <TeacherQuizEditorPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/quiz/live/:pin"
+                element={
+                  <ProtectedRoute>
+                    <TeacherQuizHostPage />
                   </ProtectedRoute>
                 }
               />

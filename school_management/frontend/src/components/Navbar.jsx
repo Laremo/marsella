@@ -20,6 +20,7 @@ import {
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   School as SchoolIcon,
+  SportsEsports as GamepadIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -32,9 +33,13 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide Navbar completely on the student portal / exam pages
-  const isStudentPortal = location.pathname === '/' || location.pathname.startsWith('/exam/');
-  if (isStudentPortal) {
+  // Hide Navbar completely on the student portal / exam pages and live quiz fullscreens
+  const isFullscreenView =
+    location.pathname === '/' ||
+    location.pathname.startsWith('/exam/') ||
+    location.pathname.startsWith('/quiz/live') ||
+    location.pathname.startsWith('/teacher/quiz/live');
+  if (isFullscreenView) {
     return null;
   }
 
@@ -168,6 +173,14 @@ export default function Navbar() {
                   onClick={() => navigate('/teacher/groups')}
                 >
                   Gestión Escolar
+                </Button>
+                <Button
+                  startIcon={<GamepadIcon />}
+                  variant={location.pathname.startsWith('/teacher/quizzes') ? 'contained' : 'text'}
+                  color="primary"
+                  onClick={() => navigate('/teacher/quizzes')}
+                >
+                  Quizzes
                 </Button>
                 <Button
                   startIcon={<AddIcon />}

@@ -415,4 +415,166 @@ public class ExcelExportService {
         style.setLeftBorderColor(color);
         style.setRightBorderColor(color);
     }
+
+    public byte[] generateQuizReportExcel(com.marsella.exam.dto.QuizSessionReportDto report) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            IndexedColorMap colorMap = workbook.getStylesSource().getIndexedColors();
+
+            // Brand colors
+            byte[] primaryPurple = new byte[]{(byte) 70, (byte) 23, (byte) 143};     // #46178F (Kahoot signature purple)
+            byte[] lightBg = new byte[]{(byte) 245, (byte) 243, (byte) 255};          // #F5F3FF
+            byte[] goldMedal = new byte[]{(byte) 245, (byte) 158, (byte) 11};         // #F59E0B
+            byte[] borderGray = new byte[]{(byte) 226, (byte) 232, (byte) 240};      // #E2E8F0
+
+            XSSFColor purpleColor = new XSSFColor(primaryPurple, colorMap);
+            XSSFColor lightBgColor = new XSSFColor(lightBg, colorMap);
+            XSSFColor goldColor = new XSSFColor(goldMedal, colorMap);
+            XSSFColor borderColor = new XSSFColor(borderGray, colorMap);
+
+            // Fonts
+            XSSFFont titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 16);
+            titleFont.setColor(new XSSFColor(new byte[]{(byte) 255, (byte) 255, (byte) 255}, colorMap));
+
+            XSSFFont headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setFontHeightInPoints((short) 11);
+            headerFont.setColor(new XSSFColor(new byte[]{(byte) 255, (byte) 255, (byte) 255}, colorMap));
+
+            XSSFFont boldFont = workbook.createFont();
+            boldFont.setBold(true);
+            boldFont.setFontHeightInPoints((short) 10);
+
+            XSSFFont regularFont = workbook.createFont();
+            regularFont.setFontHeightInPoints((short) 10);
+
+            // Styles
+            XSSFCellStyle titleStyle = workbook.createCellStyle();
+            titleStyle.setFillForegroundColor(purpleColor);
+            titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            titleStyle.setAlignment(HorizontalAlignment.LEFT);
+            titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            titleStyle.setFont(titleFont);
+
+            XSSFCellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFillForegroundColor(purpleColor);
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setFont(headerFont);
+            setThinBorders(headerStyle, borderColor);
+
+            XSSFCellStyle cellCenterStyle = workbook.createCellStyle();
+            cellCenterStyle.setAlignment(HorizontalAlignment.CENTER);
+            cellCenterStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            cellCenterStyle.setFont(regularFont);
+            setThinBorders(cellCenterStyle, borderColor);
+
+            XSSFCellStyle cellLeftStyle = workbook.createCellStyle();
+            cellLeftStyle.setAlignment(HorizontalAlignment.LEFT);
+            cellLeftStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            cellLeftStyle.setFont(regularFont);
+            setThinBorders(cellLeftStyle, borderColor);
+
+            XSSFCellStyle podiumStyle = workbook.createCellStyle();
+            podiumStyle.setFillForegroundColor(lightBgColor);
+            podiumStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            podiumStyle.setAlignment(HorizontalAlignment.CENTER);
+            podiumStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            podiumStyle.setFont(boldFont);
+            setThinBorders(podiumStyle, borderColor);
+
+            // SHEET 1: Leaderboard & Ranking
+            XSSFSheet sheet1 = workbook.createSheet("Ranking de Jugadores");
+            sheet1.setDisplayGridlines(true);
+
+            // Title block
+            Row titleRow = sheet1.createRow(0);
+            titleRow.setHeightInPoints(40);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("🏆 REPORTE DE QUIZZ EN VIVO: " + report.getQuizTitle());
+            titleCell.setCellStyle(titleStyle);
+            sheet1.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));
+
+            // Metadata rows
+            int r = 2;
+            sheet1.createRow(r++).createCell(0).setCellValue("PIN de Sala: " + report.getPin() + " | Grupo: " + report.getSchoolGroupName() + " | Profesor: " + report.getTeacherName());
+            sheet1.createRow(r++).createCell(0).setCellValue("Total Jugadores: " + report.getTotalPlayers() + " | Precisión Global: " + report.getGlobalAccuracyPercentage() + "% | Promedio: " + report.getAverageScore() + " pts");
+            r++;
+
+            // Table Header
+            String[] headers1 = {"Lugar", "Medalla", "Jugador / Apodo", "Nombre Completo", "Puntaje Total", "Aciertos", "Precisión (%)", "Racha Máx (🔥)"};
+            Row headerRow1 = sheet1.createRow(r++);
+            headerRow1.setHeightInPoints(26);
+            for (int i = 0; i < headers1.length; i++) {
+                Cell c = headerRow1.createCell(i);
+                c.setCellValue(headers1[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            for (com.marsella.exam.dto.QuizSessionReportDto.PlayerRankingReportStat ps : report.getPlayerRankings()) {
+                Row row = sheet1.createRow(r++);
+                row.setHeightInPoints(22);
+
+                String medal = ps.getRank() == 1 ? "🥇 Oro" : ps.getRank() == 2 ? "🥈 Plata" : ps.getRank() == 3 ? "🥉 Bronce" : "-";
+                boolean isTop3 = ps.getRank() <= 3;
+                XSSFCellStyle activeStyle = isTop3 ? podiumStyle : cellCenterStyle;
+
+                Cell c0 = row.createCell(0); c0.setCellValue("#" + ps.getRank()); c0.setCellStyle(activeStyle);
+                Cell c1 = row.createCell(1); c1.setCellValue(medal); c1.setCellStyle(activeStyle);
+                Cell c2 = row.createCell(2); c2.setCellValue(ps.getNickname()); c2.setCellStyle(isTop3 ? podiumStyle : cellLeftStyle);
+                Cell c3 = row.createCell(3); c3.setCellValue(ps.getFullName()); c3.setCellStyle(isTop3 ? podiumStyle : cellLeftStyle);
+                Cell c4 = row.createCell(4); c4.setCellValue(ps.getTotalScore()); c4.setCellStyle(activeStyle);
+                Cell c5 = row.createCell(5); c5.setCellValue(ps.getCorrectCount() + " / " + ps.getTotalQuestions()); c5.setCellStyle(activeStyle);
+                Cell c6 = row.createCell(6); c6.setCellValue(ps.getAccuracyPercentage() + "%"); c6.setCellStyle(activeStyle);
+                Cell c7 = row.createCell(7); c7.setCellValue(ps.getHighestStreak() != null ? ps.getHighestStreak() : 0); c7.setCellStyle(activeStyle);
+            }
+
+            for (int i = 0; i < headers1.length; i++) {
+                sheet1.autoSizeColumn(i);
+            }
+
+            // SHEET 2: Questions Breakdown
+            XSSFSheet sheet2 = workbook.createSheet("Análisis por Pregunta");
+            sheet2.setDisplayGridlines(true);
+
+            Row titleRow2 = sheet2.createRow(0);
+            titleRow2.setHeightInPoints(35);
+            Cell t2 = titleRow2.createCell(0);
+            t2.setCellValue("📊 ANÁLISIS DE PREGUNTAS Y DIFICULTAD");
+            t2.setCellStyle(titleStyle);
+            sheet2.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
+
+            int r2 = 2;
+            String[] headers2 = {"#", "Pregunta", "Aciertos", "Errores", "Sin Responder", "Precisión (%)", "Tiempo Promedio (s)"};
+            Row headerRow2 = sheet2.createRow(r2++);
+            headerRow2.setHeightInPoints(26);
+            for (int i = 0; i < headers2.length; i++) {
+                Cell c = headerRow2.createCell(i);
+                c.setCellValue(headers2[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            for (com.marsella.exam.dto.QuizSessionReportDto.QuestionReportStat qs : report.getQuestionStats()) {
+                Row row = sheet2.createRow(r2++);
+                row.setHeightInPoints(22);
+
+                Cell c0 = row.createCell(0); c0.setCellValue("P" + qs.getQuestionOrder()); c0.setCellStyle(cellCenterStyle);
+                Cell c1 = row.createCell(1); c1.setCellValue(qs.getPrompt()); c1.setCellStyle(cellLeftStyle);
+                Cell c2 = row.createCell(2); c2.setCellValue(qs.getCorrectAnswersCount()); c2.setCellStyle(cellCenterStyle);
+                Cell c3 = row.createCell(3); c3.setCellValue(qs.getIncorrectAnswersCount()); c3.setCellStyle(cellCenterStyle);
+                Cell c4 = row.createCell(4); c4.setCellValue(qs.getUnansweredCount()); c4.setCellStyle(cellCenterStyle);
+                Cell c5 = row.createCell(5); c5.setCellValue(qs.getAccuracyPercentage() + "%"); c5.setCellStyle(cellCenterStyle);
+                Cell c6 = row.createCell(6); c6.setCellValue(qs.getAverageResponseTimeSeconds() + " s"); c6.setCellStyle(cellCenterStyle);
+            }
+
+            for (int i = 0; i < headers2.length; i++) {
+                sheet2.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
 }
