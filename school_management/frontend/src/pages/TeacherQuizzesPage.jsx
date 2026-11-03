@@ -68,7 +68,7 @@ export default function TeacherQuizzesPage() {
     try {
       const [quizzesRes, groupsRes] = await Promise.all([
         quizApi.getTeacherQuizzes(),
-        api.get('/academic/groups').catch(() => ({ data: [] })),
+        api.get('/teacher/groups').catch(() => ({ data: [] })),
       ]);
       setQuizzes(quizzesRes.data || []);
       setGroups(groupsRes.data || []);

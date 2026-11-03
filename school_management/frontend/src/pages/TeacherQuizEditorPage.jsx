@@ -87,7 +87,7 @@ export default function TeacherQuizEditorPage() {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const groupsRes = await api.get('/academic/groups').catch(() => ({ data: [] }));
+      const groupsRes = await api.get('/teacher/groups').catch(() => ({ data: [] }));
       setGroups(groupsRes.data || []);
 
       if (isEditing) {
