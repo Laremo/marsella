@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Box,
@@ -34,6 +34,7 @@ import {
   EmojiEvents as TrophyIcon,
   CheckCircle as CorrectIcon,
   RadioButtonUnchecked as UncheckedIcon,
+  Restore as RestoreIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import quizApi from '../services/quizApi';
@@ -49,6 +50,10 @@ const QUIZ_OPTION_THEMES = [
 export default function TeacherQuizEditorPage() {
   const { id } = useParams();
   const isEditing = Boolean(id);
+  const draftKey = isEditing ? `quiz_draft_edit_${id}` : 'quiz_draft_new';
+  const initialLoadDoneRef = useRef(false);
+  const isSavedRef = useRef(false);
+
   const navigate = useNavigate();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -57,6 +62,7 @@ export default function TeacherQuizEditorPage() {
   const [saving, setSaving] = useState(false);
   const [groups, setGroups] = useState([]);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'info' });
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -93,6 +99,35 @@ export default function TeacherQuizEditorPage() {
       if (isEditing) {
         const res = await quizApi.getTeacherQuiz(id);
         const data = res.data;
+
+        // Check if there is an unsaved local draft for this quiz
+        const savedDraft = localStorage.getItem(draftKey);
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed && (parsed.title || parsed.questions?.length > 0)) {
+              setTitle(parsed.title || '');
+              setDescription(parsed.description || '');
+              setDefaultTimeLimitSeconds(parsed.defaultTimeLimitSeconds || 15);
+              setBasePoints(parsed.basePoints || 1000);
+              setSchoolGroupId(parsed.schoolGroupId || '');
+              if (parsed.questions && parsed.questions.length > 0) {
+                setQuestions(parsed.questions);
+              }
+              setHasRestoredDraft(true);
+              setSnack({
+                open: true,
+                message: 'Se recuperó tu borrador no guardado de este quizz.',
+                severity: 'info',
+              });
+              initialLoadDoneRef.current = true;
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing quiz draft', e);
+          }
+        }
+
         setTitle(data.title || '');
         setDescription(data.description || '');
         setDefaultTimeLimitSeconds(data.defaultTimeLimitSeconds || 15);
@@ -108,13 +143,102 @@ export default function TeacherQuizEditorPage() {
             }))
           );
         }
+      } else {
+        // New quiz: check draft
+        const savedDraft = localStorage.getItem(draftKey);
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed && (parsed.title || parsed.questions?.length > 1 || parsed.questions?.[0]?.prompt)) {
+              setTitle(parsed.title || '');
+              setDescription(parsed.description || '');
+              setDefaultTimeLimitSeconds(parsed.defaultTimeLimitSeconds || 15);
+              setBasePoints(parsed.basePoints || 1000);
+              setSchoolGroupId(parsed.schoolGroupId || '');
+              if (parsed.questions && parsed.questions.length > 0) {
+                setQuestions(parsed.questions);
+              }
+              setHasRestoredDraft(true);
+              setSnack({
+                open: true,
+                message: 'Se recuperó tu borrador no guardado.',
+                severity: 'info',
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing quiz draft', e);
+          }
+        }
       }
     } catch (err) {
       console.error('Error loading quiz editor data:', err);
       setSnack({ open: true, message: 'Error al cargar los datos del quizz.', severity: 'error' });
     } finally {
       setLoading(false);
+      initialLoadDoneRef.current = true;
     }
+  };
+
+  // Auto-save draft whenever inputs change
+  useEffect(() => {
+    if (!initialLoadDoneRef.current || isSavedRef.current) return;
+    const draft = {
+      title,
+      description,
+      defaultTimeLimitSeconds,
+      basePoints,
+      schoolGroupId,
+      questions,
+      savedAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('LocalStorage error saving quiz draft', e);
+    }
+  }, [title, description, defaultTimeLimitSeconds, basePoints, schoolGroupId, questions, draftKey]);
+
+  // Prevent accidental tab closure if unsaved
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const hasContent = title.trim().length > 0 || questions.some((q) => q.prompt.trim().length > 0);
+      if (hasContent && !isSavedRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [title, questions]);
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftKey);
+    setHasRestoredDraft(false);
+    if (isEditing) {
+      fetchInitialData();
+    } else {
+      setTitle('');
+      setDescription('');
+      setDefaultTimeLimitSeconds(15);
+      setBasePoints(1000);
+      setSchoolGroupId('');
+      setQuestions([
+        {
+          id: 1,
+          prompt: '',
+          timeLimitSeconds: 15,
+          points: 1000,
+          explanation: '',
+          options: [
+            { id: 'A', text: '', color: 'RED', shape: 'TRIANGLE', isCorrect: true },
+            { id: 'B', text: '', color: 'BLUE', shape: 'DIAMOND', isCorrect: false },
+            { id: 'C', text: '', color: 'YELLOW', shape: 'CIRCLE', isCorrect: false },
+            { id: 'D', text: '', color: 'GREEN', shape: 'SQUARE', isCorrect: false },
+          ],
+        },
+      ]);
+    }
+    setSnack({ open: true, message: 'Borrador descartado.', severity: 'info' });
   };
 
   const ensureFourOptions = (opts = []) => {
@@ -285,6 +409,10 @@ export default function TeacherQuizEditorPage() {
         setSnack({ open: true, message: 'Quizz creado exitosamente.', severity: 'success' });
       }
 
+      // Mark saved and clean up draft from localStorage
+      isSavedRef.current = true;
+      localStorage.removeItem(draftKey);
+
       setTimeout(() => navigate('/teacher/quizzes'), 800);
     } catch (err) {
       console.error('Error saving quiz:', err);
@@ -332,6 +460,27 @@ export default function TeacherQuizEditorPage() {
           {saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Quizz'}
         </Button>
       </Box>
+
+      {/* Auto-saved draft banner */}
+      {hasRestoredDraft && (
+        <Alert
+          severity="info"
+          icon={<RestoreIcon />}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={handleDiscardDraft}
+              sx={{ fontWeight: 800, textTransform: 'none' }}
+            >
+              Descartar borrador
+            </Button>
+          }
+          sx={{ mb: 3, borderRadius: '10px', alignItems: 'center' }}
+        >
+          Se recuperó tu borrador no guardado. Tu progreso se guarda automáticamente y no se perderá al recargar o volver atrás.
+        </Alert>
+      )}
 
       {/* Main Metadata Card */}
       <Card sx={{ borderRadius: '12px', mb: 4, p: 1, border: `1px solid ${theme.palette.divider}` }}>
