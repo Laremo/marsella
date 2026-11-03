@@ -33,6 +33,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useColorTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function StudentJoinPage() {
   const [step, setStep] = useState(1); // 1 = Código de examen, 2 = Nombre del alumno
@@ -45,6 +46,7 @@ export default function StudentJoinPage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { isDark, toggleTheme } = useColorTheme();
+  const { isAuthenticated } = useAuth();
 
   // Paso 1: Validar únicamente el código del examen
   const handleVerifyCode = async (e) => {
@@ -447,7 +449,7 @@ export default function StudentJoinPage() {
           color="primary"
           size="medium"
           startIcon={<PersonIcon />}
-          onClick={() => navigate('/teacher/login')}
+          onClick={() => navigate(isAuthenticated ? '/teacher/dashboard' : '/teacher/login')}
           sx={{
             bgcolor: isDark ? 'rgba(19, 27, 49, 0.9)' : 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(8px)',

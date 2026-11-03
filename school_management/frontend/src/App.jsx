@@ -14,6 +14,8 @@ import TeacherRegisterPage from './pages/TeacherRegisterPage';
 import TeacherDashboardPage from './pages/TeacherDashboardPage';
 import TeacherExamEditorPage from './pages/TeacherExamEditorPage';
 import TeacherSubmissionsPage from './pages/TeacherSubmissionsPage';
+import TeacherGroupsPage from './pages/TeacherGroupsPage';
+import TeacherGroupDetailPage from './pages/TeacherGroupDetailPage';
 
 // Protected Route Component for Teachers
 const ProtectedRoute = ({ children }) => {
@@ -21,6 +23,16 @@ const ProtectedRoute = ({ children }) => {
   if (loading) return null;
   if (!isAuthenticated) {
     return <Navigate to="/teacher/login" replace />;
+  }
+  return children;
+};
+
+// Public Route Component for Teachers (redirects to dashboard if already authenticated)
+const GuestRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  if (isAuthenticated) {
+    return <Navigate to="/teacher/dashboard" replace />;
   }
   return children;
 };
@@ -38,9 +50,33 @@ export default function App() {
               <Route path="/exam/:submissionId" element={<StudentExamRoomPage />} />
               <Route path="/exam/finished/:submissionId" element={<StudentExamFinishedPage />} />
 
+              {/* Teacher Entry Point */}
+              <Route
+                path="/teacher"
+                element={
+                  <ProtectedRoute>
+                    <Navigate to="/teacher/dashboard" replace />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Teacher Public Routes */}
-              <Route path="/teacher/login" element={<TeacherLoginPage />} />
-              <Route path="/teacher/register" element={<TeacherRegisterPage />} />
+              <Route
+                path="/teacher/login"
+                element={
+                  <GuestRoute>
+                    <TeacherLoginPage />
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/teacher/register"
+                element={
+                  <GuestRoute>
+                    <TeacherRegisterPage />
+                  </GuestRoute>
+                }
+              />
 
               {/* Teacher Protected Routes */}
               <Route
@@ -72,6 +108,22 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <TeacherSubmissionsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/groups"
+                element={
+                  <ProtectedRoute>
+                    <TeacherGroupsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/groups/:id"
+                element={
+                  <ProtectedRoute>
+                    <TeacherGroupDetailPage />
                   </ProtectedRoute>
                 }
               />

@@ -19,6 +19,7 @@ import {
   Wifi as WifiIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +41,14 @@ export default function Navbar() {
   const royalBlue = '#2563EB';
   const royalBlueHover = '#1D4ED8';
 
+  const handleTeacherAccess = () => {
+    if (isAuthenticated) {
+      navigate('/teacher/dashboard');
+    } else {
+      navigate('/teacher/login');
+    }
+  };
+
   return (
     <AppBar
       position="sticky"
@@ -53,7 +62,6 @@ export default function Navbar() {
     >
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ justifyContent: 'space-between', py: 1.2 }}>
-          {/* Logo with Cheese Icon: EVALUACIONES / Laremo */}
           <Box
             sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 1.5 }}
             onClick={() => navigate('/')}
@@ -87,7 +95,7 @@ export default function Navbar() {
                   fontSize: '1.15rem',
                 }}
               >
-                EVALUACIONES
+                Evaluaciones
               </Typography>
               <Typography
                 variant="caption"
@@ -101,7 +109,6 @@ export default function Navbar() {
                   fontSize: '0.82rem',
                 }}
               >
-                Laremo
               </Typography>
             </Box>
           </Box>
@@ -152,7 +159,15 @@ export default function Navbar() {
                   color="primary"
                   onClick={() => navigate('/teacher/dashboard')}
                 >
-                  Panel
+                  Exámenes
+                </Button>
+                <Button
+                  startIcon={<SchoolIcon />}
+                  variant={location.pathname.startsWith('/teacher/groups') ? 'contained' : 'text'}
+                  color="primary"
+                  onClick={() => navigate('/teacher/groups')}
+                >
+                  Gestión Escolar
                 </Button>
                 <Button
                   startIcon={<AddIcon />}
@@ -201,7 +216,7 @@ export default function Navbar() {
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => navigate('/teacher/login')}
+                  onClick={handleTeacherAccess}
                 >
                   Docentes
                 </Button>
