@@ -178,6 +178,9 @@ export default function TeacherQuizzesPage() {
                 fontWeight: 700,
                 fontSize: '0.72rem',
                 borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             />
           </Box>
