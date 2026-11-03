@@ -1,6 +1,7 @@
 package com.marsella.exam.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,6 +37,22 @@ public class LiveQuizStateDto {
 
     public Integer getPlayerCount() {
         return connectedPlayersCount != null ? connectedPlayersCount : (players != null ? players.size() : 0);
+    }
+
+    @JsonProperty("answeredCount")
+    public Integer getAnsweredCount() {
+        return totalAnsweredCount;
+    }
+
+    @JsonProperty("leaderboard")
+    public List<QuizPlayerSummaryDto> getLeaderboard() {
+        return topPlayers;
+    }
+
+    @JsonProperty("podium")
+    public List<QuizPlayerSummaryDto> getPodium() {
+        return topPlayers != null && !topPlayers.isEmpty() ?
+                topPlayers.subList(0, Math.min(3, topPlayers.size())) : List.of();
     }
 }
 

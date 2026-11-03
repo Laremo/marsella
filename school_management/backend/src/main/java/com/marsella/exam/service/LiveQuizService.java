@@ -412,6 +412,11 @@ public class LiveQuizService {
                     optionStats.put(a.getSelectedOptionId(), optionStats.getOrDefault(a.getSelectedOptionId(), 0) + 1);
                 }
             }
+            if (filteredQuestion != null && filteredQuestion.getOptions() != null) {
+                for (QuizOptionDto opt : filteredQuestion.getOptions()) {
+                    opt.setResponseCount(optionStats.getOrDefault(opt.getId(), 0));
+                }
+            }
         }
 
         // Group Roster with connected indicator

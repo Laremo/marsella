@@ -203,10 +203,12 @@ export default function TeacherQuizHostPage() {
     );
   }
 
-  const { status, quizTitle, players = [], groupRoster = [], currentQuestion, leaderboard = [], podium = [] } = state;
+  const { status, quizTitle, players = [], groupRoster = [], currentQuestion } = state;
   const connectedPlayers = players.filter((p) => p.isConnected);
-  const totalConnected = state.totalParticipantsAtStart || connectedPlayers.length;
-  const answeredCount = state.answeredCount || 0;
+  const totalConnected = state.totalParticipantsAtStart ?? state.connectedPlayersCount ?? connectedPlayers.length;
+  const answeredCount = state.answeredCount ?? state.totalAnsweredCount ?? 0;
+  const leaderboard = state.leaderboard || state.topPlayers || [];
+  const podium = state.podium || leaderboard.slice(0, 3) || [];
 
   return (
     <Box
@@ -640,7 +642,7 @@ export default function TeacherQuizHostPage() {
             <Grid container spacing={2.5} sx={{ mb: 3 }}>
               {currentQuestion?.options?.map((opt, idx) => {
                 const style = OPTION_THEMES[opt.id] || Object.values(OPTION_THEMES)[idx % 4];
-                const count = opt.responseCount || 0;
+                const count = state.optionStats?.[opt.id] ?? opt.responseCount ?? 0;
                 const isCorrect = opt.isCorrect;
 
                 return (
@@ -794,7 +796,7 @@ export default function TeacherQuizHostPage() {
                   </Box>
 
                   <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary' }}>
-                    {item.score.toLocaleString()} pts
+                    {(item.score ?? item.totalScore ?? 0).toLocaleString()} pts
                   </Typography>
                 </Paper>
               ))}
@@ -842,7 +844,7 @@ export default function TeacherQuizHostPage() {
                     {podium[1].nickname}
                   </Typography>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1 }}>
-                    {podium[1].score?.toLocaleString()} pts
+                    {(podium[1].score ?? podium[1].totalScore ?? 0).toLocaleString()} pts
                   </Typography>
                   <Paper
                     sx={{
@@ -877,7 +879,7 @@ export default function TeacherQuizHostPage() {
                     {podium[0].nickname}
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, mb: 1 }}>
-                    {podium[0].score?.toLocaleString()} pts
+                    {(podium[0].score ?? podium[0].totalScore ?? 0).toLocaleString()} pts
                   </Typography>
                   <Paper
                     sx={{
@@ -911,7 +913,7 @@ export default function TeacherQuizHostPage() {
                     {podium[2].nickname}
                   </Typography>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1 }}>
-                    {podium[2].score?.toLocaleString()} pts
+                    {(podium[2].score ?? podium[2].totalScore ?? 0).toLocaleString()} pts
                   </Typography>
                   <Paper
                     sx={{

@@ -35,6 +35,11 @@ const OPTION_BUTTONS = [
   { id: 'D', name: 'Verde', hex: '#26890C', shape: '■' },
 ];
 
+const getCleanStoredToken = () => {
+  const t = localStorage.getItem('quiz_player_token');
+  return (t && t !== 'undefined' && t !== 'null') ? t.trim() : '';
+};
+
 export default function StudentQuizRoomPage() {
   const { pin: urlPin } = useParams();
   const navigate = useNavigate();
@@ -45,7 +50,7 @@ export default function StudentQuizRoomPage() {
   const [pin, setPin] = useState(urlPin || localStorage.getItem('quiz_pin') || '');
   const [nickname, setNickname] = useState(localStorage.getItem('quiz_nickname') || '');
   const [avatar, setAvatar] = useState(localStorage.getItem('quiz_avatar') || '🦊');
-  const [playerToken, setPlayerToken] = useState(localStorage.getItem('quiz_player_token') || '');
+  const [playerToken, setPlayerToken] = useState(getCleanStoredToken);
   const [isJoined, setIsJoined] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState('');
@@ -66,12 +71,18 @@ export default function StudentQuizRoomPage() {
 
   // Auto-reconnect if token is saved in localStorage
   useEffect(() => {
-    if (playerToken && pin) {
-      reconnectPlayer(pin, playerToken);
+    const token = getCleanStoredToken();
+    if (token && pin) {
+      reconnectPlayer(pin, token);
     }
   }, []);
 
   const reconnectPlayer = async (roomPin, token) => {
+    if (!token || token === 'undefined' || token === 'null') {
+      localStorage.removeItem('quiz_player_token');
+      setPlayerToken('');
+      return;
+    }
     try {
       const res = await quizApi.getPlayerState(roomPin, token);
       if (res.data) {
@@ -161,17 +172,21 @@ export default function StudentQuizRoomPage() {
     setJoinError('');
 
     try {
-      const res = await quizApi.joinLiveQuiz(pin.trim(), nickname.trim(), avatar, null, playerToken || null);
+      const currentToken = playerToken && playerToken !== 'undefined' ? playerToken : getCleanStoredToken();
+      const res = await quizApi.joinLiveQuiz(pin.trim(), nickname.trim(), avatar, null, currentToken || null);
       const data = res.data;
 
-      setPlayerToken(data.sessionToken);
+      const validToken = data.playerToken || data.sessionToken;
+      setPlayerToken(validToken);
       setPlayerState(data);
       setIsJoined(true);
 
       localStorage.setItem('quiz_pin', pin.trim());
       localStorage.setItem('quiz_nickname', nickname.trim());
       localStorage.setItem('quiz_avatar', avatar);
-      localStorage.setItem('quiz_player_token', data.sessionToken);
+      if (validToken) {
+        localStorage.setItem('quiz_player_token', validToken);
+      }
     } catch (err) {
       console.error('Error joining quiz:', err);
       setJoinError(err.response?.data?.message || 'No se pudo unir a la sala. Verifica el PIN.');
@@ -183,15 +198,21 @@ export default function StudentQuizRoomPage() {
   const handleSelectAnswer = async (optId) => {
     if (hasAnsweredCurrentQuestion || submittingAnswer || !roomState?.currentQuestion) return;
 
+    const currentToken = playerToken || getCleanStoredToken();
+    if (!currentToken) {
+      console.error('Missing playerToken, cannot submit answer');
+      return;
+    }
+
     setSelectedOption(optId);
     setHasAnsweredCurrentQuestion(true);
     setSubmittingAnswer(true);
 
-    const responseTimeMs = questionStartTimeRef.current ? Date.now() - questionStartTimeRef.current : 3000;
+    const responseTimeMs = questionStartTimeRef.current ? Math.max(50, Date.now() - questionStartTimeRef.current) : 3000;
 
     try {
       const res = await quizApi.submitQuizAnswer(pin, {
-        playerToken,
+        playerToken: currentToken,
         selectedOptionId: optId,
         selectedOption: optId,
         questionId: roomState.currentQuestion.id,
@@ -202,6 +223,9 @@ export default function StudentQuizRoomPage() {
       }
     } catch (err) {
       console.error('Error submitting answer:', err);
+      // Revert optimistic selection on network/server error
+      setHasAnsweredCurrentQuestion(false);
+      setSelectedOption(null);
     } finally {
       setSubmittingAnswer(false);
     }

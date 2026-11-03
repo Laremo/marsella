@@ -1,5 +1,6 @@
 package com.marsella.exam.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,5 +25,15 @@ public class QuizPlayerSummaryDto {
     private Integer lastStreakBonus;
     private Boolean lastAnswerCorrect;
     private Long lastResponseTimeMs;
+
+    @JsonProperty("score")
+    public Integer getScore() {
+        return totalScore != null ? totalScore : 0;
+    }
+
+    @JsonProperty("playerId")
+    public Long getPlayerId() {
+        return id;
+    }
 }
 

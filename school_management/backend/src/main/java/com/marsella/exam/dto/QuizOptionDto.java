@@ -17,5 +17,6 @@ public class QuizOptionDto {
     private String color;
     private String shape;
     private Boolean isCorrect;
+    private Integer responseCount;
 }
 

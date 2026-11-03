@@ -1,6 +1,7 @@
 package com.marsella.exam.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,5 +27,10 @@ public class QuizPlayerStateDto {
     private Integer streakBonus;
     private Integer currentRank;
     private Integer scoreToNextRank;
+
+    @JsonProperty("sessionToken")
+    public String getSessionToken() {
+        return playerToken;
+    }
 }
 
