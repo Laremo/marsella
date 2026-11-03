@@ -33,5 +33,9 @@ public class LiveQuizStateDto {
     private List<QuizPlayerSummaryDto> topPlayers;
     private Map<String, Integer> optionStats;
     private List<StudentRosterDto> groupRoster;
+
+    public Integer getPlayerCount() {
+        return connectedPlayersCount != null ? connectedPlayersCount : (players != null ? players.size() : 0);
+    }
 }
 

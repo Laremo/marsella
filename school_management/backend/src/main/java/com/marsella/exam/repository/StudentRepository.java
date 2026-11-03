@@ -12,6 +12,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     List<Student> findBySchoolGroupIdOrderByFullNameAsc(Long schoolGroupId);
 
+    List<Student> findBySchoolGroupIdOrderByListNumberAsc(Long schoolGroupId);
+
     Optional<Student> findByIdAndSchoolGroupId(Long id, Long schoolGroupId);
 
     boolean existsBySchoolGroupIdAndFullNameIgnoreCase(Long schoolGroupId, String fullName);

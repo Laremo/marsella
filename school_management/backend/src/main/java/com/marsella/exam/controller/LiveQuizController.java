@@ -37,7 +37,7 @@ public class LiveQuizController {
                     "valid", true,
                     "status", state.getStatus(),
                     "quizTitle", state.getQuizTitle(),
-                    "playerCount", state.getPlayerCount()
+                    "playerCount", state.getConnectedPlayersCount() != null ? state.getConnectedPlayersCount() : 0
             ));
         } catch (Exception e) {
             return ResponseEntity.ok(Map.of("valid", false, "message", e.getMessage()));
