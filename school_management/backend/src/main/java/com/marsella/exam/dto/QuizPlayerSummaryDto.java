@@ -25,3 +25,4 @@ public class QuizPlayerSummaryDto {
     private Boolean lastAnswerCorrect;
     private Long lastResponseTimeMs;
 }
+

@@ -34,3 +34,4 @@ public class LiveQuizStateDto {
     private Map<String, Integer> optionStats;
     private List<StudentRosterDto> groupRoster;
 }
+

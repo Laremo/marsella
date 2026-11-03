@@ -17,3 +17,4 @@ public interface QuizPlayerAnswerRepository extends JpaRepository<QuizPlayerAnsw
     List<QuizPlayerAnswer> findByPlayer(QuizPlayer player);
     long countBySessionAndQuestionIndex(LiveQuizSession session, Integer questionIndex);
 }
+

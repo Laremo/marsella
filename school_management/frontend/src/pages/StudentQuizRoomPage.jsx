@@ -28,7 +28,7 @@ import quizApi from '../services/quizApi';
 
 const AVATARS = ['🦊', '🚀', '🐼', '⚡', '🦁', '🐯', '🦄', '🎯', '🌟', '👾', '🔥', '🐬', '🏆', '🍕'];
 
-const KAHOOT_BUTTONS = [
+const OPTION_BUTTONS = [
   { id: 'A', name: 'Rojo', hex: '#E21B3C', shape: '▲' },
   { id: 'B', name: 'Azul', hex: '#1368CE', shape: '◆' },
   { id: 'C', name: 'Amarillo', hex: '#D89E00', shape: '●' },
@@ -452,7 +452,7 @@ export default function StudentQuizRoomPage() {
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {!hasAnsweredCurrentQuestion ? (
               <Grid container spacing={2} sx={{ flex: 1 }}>
-                {KAHOOT_BUTTONS.map((btn) => {
+                {OPTION_BUTTONS.map((btn) => {
                   const optionData = roomState?.currentQuestion?.options?.find((o) => o.id === btn.id);
                   const optionText = optionData ? optionData.text : `Opción ${btn.id}`;
 
@@ -674,3 +674,4 @@ export default function StudentQuizRoomPage() {
     </Box>
   );
 }
+

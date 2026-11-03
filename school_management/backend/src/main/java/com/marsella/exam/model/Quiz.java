@@ -51,3 +51,4 @@ public class Quiz {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+

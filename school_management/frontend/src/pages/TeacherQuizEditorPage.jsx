@@ -39,7 +39,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import quizApi from '../services/quizApi';
 import api from '../services/api';
 
-const KAHOOT_COLORS = [
+const QUIZ_OPTION_THEMES = [
   { id: 'A', name: 'Rojo', hex: '#E21B3C', shape: '▲', shapeName: 'TRIANGLE' },
   { id: 'B', name: 'Azul', hex: '#1368CE', shape: '◆', shapeName: 'DIAMOND' },
   { id: 'C', name: 'Amarillo', hex: '#D89E00', shape: '●', shapeName: 'CIRCLE' },
@@ -391,7 +391,7 @@ export default function TeacherQuizEditorPage() {
                 inputProps={{ min: 5, max: 120, step: 'any' }}
                 value={defaultTimeLimitSeconds}
                 onChange={(e) => setDefaultTimeLimitSeconds(e.target.value)}
-                helperText="Por defecto: 15 segundos estilo Kahoot"
+                helperText="Por defecto: 15 segundos"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -545,14 +545,14 @@ export default function TeacherQuizEditorPage() {
               </Grid>
             </Grid>
 
-            {/* Kahoot 4 Options Grid */}
+            {/* 4 Options Grid */}
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
               Opciones de Respuesta (Marca con el círculo verde la respuesta correcta):
             </Typography>
 
             <Grid container spacing={2}>
               {q.options.map((opt, optIdx) => {
-                const kahootColor = KAHOOT_COLORS[optIdx] || KAHOOT_COLORS[0];
+                const optionTheme = QUIZ_OPTION_THEMES[optIdx] || QUIZ_OPTION_THEMES[0];
                 const isCorrect = opt.isCorrect;
 
                 return (
@@ -583,7 +583,7 @@ export default function TeacherQuizEditorPage() {
                           width: 38,
                           height: 38,
                           borderRadius: '8px',
-                          bgcolor: kahootColor.hex,
+                          bgcolor: optionTheme.hex,
                           color: '#fff',
                           display: 'flex',
                           alignItems: 'center',
@@ -594,14 +594,14 @@ export default function TeacherQuizEditorPage() {
                           boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                         }}
                       >
-                        {kahootColor.shape}
+                        {optionTheme.shape}
                       </Box>
 
                       {/* Text Input */}
                       <TextField
                         size="small"
                         fullWidth
-                        placeholder={`Opción ${opt.id} (${kahootColor.name})...`}
+                        placeholder={`Opción ${opt.id} (${optionTheme.name})...`}
                         value={opt.text}
                         onChange={(e) => handleOptionTextChange(qIdx, optIdx, e.target.value)}
                         sx={{
@@ -672,3 +672,4 @@ export default function TeacherQuizEditorPage() {
     </Container>
   );
 }
+

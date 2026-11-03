@@ -17,3 +17,4 @@ public class StudentRosterDto {
     private String nickname;
     private String avatar;
 }
+

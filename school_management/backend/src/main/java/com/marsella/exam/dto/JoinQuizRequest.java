@@ -21,3 +21,4 @@ public class JoinQuizRequest {
     private String avatar;
     private String playerToken;
 }
+

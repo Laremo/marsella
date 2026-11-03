@@ -18,3 +18,4 @@ public class QuizOptionDto {
     private String shape;
     private Boolean isCorrect;
 }
+

@@ -33,13 +33,14 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide Navbar completely on the student portal / exam pages and live quiz fullscreens
-  const isFullscreenView =
+  // Hide Navbar completely on the student portal, live quiz fullscreens, and teacher authenticated pages (which use TeacherSidebar)
+  const isFullscreenOrTeacher =
     location.pathname === '/' ||
     location.pathname.startsWith('/exam/') ||
     location.pathname.startsWith('/quiz/live') ||
-    location.pathname.startsWith('/teacher/quiz/live');
-  if (isFullscreenView) {
+    location.pathname.startsWith('/teacher/quiz/live') ||
+    (isAuthenticated && location.pathname.startsWith('/teacher'));
+  if (isFullscreenOrTeacher) {
     return null;
   }
 

@@ -17,3 +17,4 @@ public class SubmitQuizAnswerRequest {
     @NotBlank(message = "Debes seleccionar una opción")
     private String selectedOptionId;
 }
+

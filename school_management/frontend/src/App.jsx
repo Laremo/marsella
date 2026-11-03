@@ -20,15 +20,16 @@ import TeacherQuizzesPage from './pages/TeacherQuizzesPage';
 import TeacherQuizEditorPage from './pages/TeacherQuizEditorPage';
 import TeacherQuizHostPage from './pages/TeacherQuizHostPage';
 import StudentQuizRoomPage from './pages/StudentQuizRoomPage';
+import TeacherLayout from './components/TeacherLayout';
 
 // Protected Route Component for Teachers
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, useLayout = true }) => {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return null;
   if (!isAuthenticated) {
     return <Navigate to="/teacher/login" replace />;
   }
-  return children;
+  return useLayout ? <TeacherLayout>{children}</TeacherLayout> : children;
 };
 
 // Public Route Component for Teachers (redirects to dashboard if already authenticated)
@@ -160,7 +161,7 @@ export default function App() {
               <Route
                 path="/teacher/quiz/live/:pin"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute useLayout={false}>
                     <TeacherQuizHostPage />
                   </ProtectedRoute>
                 }

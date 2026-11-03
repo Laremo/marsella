@@ -43,3 +43,4 @@ public class QuizQuestion {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 }
+

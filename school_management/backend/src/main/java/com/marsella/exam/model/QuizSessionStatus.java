@@ -9,3 +9,4 @@ public enum QuizSessionStatus {
     PODIUM,
     FINISHED
 }
+

@@ -165,11 +165,11 @@ public class DataInitializer implements CommandLineRunner {
         // Seed demo Quiz for user laremo (or fallback defaultTeacher) if no quizzes exist
         if (quizRepository.count() == 0) {
             User quizTeacher = userRepository.findByUsername("laremo").orElse(defaultTeacher);
-            log.info("Seeding demo Kahoot-style quiz for user '{}'", quizTeacher.getUsername());
+            log.info("Seeding demo quiz for user '{}'", quizTeacher.getUsername());
             try {
                 Quiz demoQuiz = Quiz.builder()
                         .title("Quiz de Demostración - Cultura Digital y Tecnología")
-                        .description("Quiz interactivo en vivo al estilo Kahoot para poner a prueba conocimientos de tecnología, redes y cultura digital.")
+                        .description("Quiz interactivo en vivo para poner a prueba conocimientos de tecnología, redes y cultura digital.")
                         .defaultTimeLimitSeconds(15)
                         .basePoints(1000)
                         .teacher(quizTeacher)
@@ -265,7 +265,7 @@ public class DataInitializer implements CommandLineRunner {
 
                 demoQuiz.setQuestions(qList);
                 quizRepository.save(demoQuiz);
-                log.info("Demo Kahoot-style quiz seeded successfully with 5 questions!");
+                log.info("Demo quiz seeded successfully with 5 questions!");
             } catch (Exception e) {
                 log.error("Failed to seed demo quiz", e);
             }

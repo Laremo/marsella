@@ -24,3 +24,4 @@ public class QuizDto {
     private LocalDateTime createdAt;
     private List<QuizQuestionDto> questions;
 }
+

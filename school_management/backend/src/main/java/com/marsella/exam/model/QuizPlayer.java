@@ -76,3 +76,4 @@ public class QuizPlayer {
     @Column(nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
 }
+

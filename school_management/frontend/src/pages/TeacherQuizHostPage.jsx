@@ -35,7 +35,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import quizApi from '../services/quizApi';
 
-const KAHOOT_STYLES = {
+const OPTION_THEMES = {
   A: { name: 'Rojo', hex: '#E21B3C', shape: '▲' },
   B: { name: 'Azul', hex: '#1368CE', shape: '◆' },
   C: { name: 'Amarillo', hex: '#D89E00', shape: '●' },
@@ -561,10 +561,10 @@ export default function TeacherQuizHostPage() {
               }}
             />
 
-            {/* 4 Kahoot Options Grid */}
+            {/* 4 Options Grid */}
             <Grid container spacing={2.5} sx={{ flex: 1 }}>
               {currentQuestion?.options?.map((opt, idx) => {
-                const style = KAHOOT_STYLES[opt.id] || Object.values(KAHOOT_STYLES)[idx % 4];
+                const style = OPTION_THEMES[opt.id] || Object.values(OPTION_THEMES)[idx % 4];
                 return (
                   <Grid item xs={12} sm={6} key={opt.id || idx}>
                     <Paper
@@ -638,7 +638,7 @@ export default function TeacherQuizHostPage() {
             {/* Distribution chart and feedback */}
             <Grid container spacing={2.5} sx={{ mb: 3 }}>
               {currentQuestion?.options?.map((opt, idx) => {
-                const style = KAHOOT_STYLES[opt.id] || Object.values(KAHOOT_STYLES)[idx % 4];
+                const style = OPTION_THEMES[opt.id] || Object.values(OPTION_THEMES)[idx % 4];
                 const count = opt.responseCount || 0;
                 const isCorrect = opt.isCorrect;
 
@@ -972,3 +972,4 @@ export default function TeacherQuizHostPage() {
     </Box>
   );
 }
+

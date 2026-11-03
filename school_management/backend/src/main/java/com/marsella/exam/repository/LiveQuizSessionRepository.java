@@ -15,3 +15,4 @@ public interface LiveQuizSessionRepository extends JpaRepository<LiveQuizSession
     List<LiveQuizSession> findByTeacherOrderByCreatedAtDesc(User teacher);
     List<LiveQuizSession> findByTeacherAndStatusNot(User teacher, QuizSessionStatus status);
 }
+

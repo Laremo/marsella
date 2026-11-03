@@ -57,3 +57,4 @@ public class QuizSessionReportDto {
         private Integer highestStreak;
     }
 }
+

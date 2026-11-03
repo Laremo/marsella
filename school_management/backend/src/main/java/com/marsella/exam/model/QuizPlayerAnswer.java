@@ -54,3 +54,4 @@ public class QuizPlayerAnswer {
     @Column(nullable = false)
     private Long submittedAt = System.currentTimeMillis();
 }
+

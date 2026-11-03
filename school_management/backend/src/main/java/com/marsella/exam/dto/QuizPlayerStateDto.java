@@ -27,3 +27,4 @@ public class QuizPlayerStateDto {
     private Integer currentRank;
     private Integer scoreToNextRank;
 }
+

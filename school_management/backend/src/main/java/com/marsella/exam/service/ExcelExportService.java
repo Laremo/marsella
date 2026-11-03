@@ -421,7 +421,7 @@ public class ExcelExportService {
             IndexedColorMap colorMap = workbook.getStylesSource().getIndexedColors();
 
             // Brand colors
-            byte[] primaryPurple = new byte[]{(byte) 70, (byte) 23, (byte) 143};     // #46178F (Kahoot signature purple)
+            byte[] primaryPurple = new byte[]{(byte) 70, (byte) 23, (byte) 143};     // #46178F (Primary brand purple)
             byte[] lightBg = new byte[]{(byte) 245, (byte) 243, (byte) 255};          // #F5F3FF
             byte[] goldMedal = new byte[]{(byte) 245, (byte) 158, (byte) 11};         // #F59E0B
             byte[] borderGray = new byte[]{(byte) 226, (byte) 232, (byte) 240};      // #E2E8F0

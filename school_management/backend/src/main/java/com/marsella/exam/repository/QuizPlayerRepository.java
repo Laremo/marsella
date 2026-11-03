@@ -15,3 +15,4 @@ public interface QuizPlayerRepository extends JpaRepository<QuizPlayer, Long> {
     List<QuizPlayer> findBySessionOrderByTotalScoreDesc(LiveQuizSession session);
     List<QuizPlayer> findBySessionId(Long sessionId);
 }
+

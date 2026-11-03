@@ -167,11 +167,10 @@ export default function TeacherQuizzesPage() {
               🎮
             </Box>
             <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
-              Quizzes en Vivo (Estilo Kahoot)
+              Quizzes en Vivo
             </Typography>
             <Chip
               icon={<LiveIcon sx={{ fontSize: '14px !important', color: '#fff !important' }} />}
-              label="Multijugador"
               size="small"
               sx={{
                 bgcolor: '#E21B3C',
@@ -530,3 +529,4 @@ export default function TeacherQuizzesPage() {
     </Container>
   );
 }
+

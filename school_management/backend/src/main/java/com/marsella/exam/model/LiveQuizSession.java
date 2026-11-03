@@ -60,3 +60,4 @@ public class LiveQuizSession {
 
     private LocalDateTime endedAt;
 }
+

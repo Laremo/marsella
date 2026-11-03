@@ -21,3 +21,4 @@ public class CreateQuizRequest {
     private Integer basePoints;
     private List<QuizQuestionDto> questions;
 }
+

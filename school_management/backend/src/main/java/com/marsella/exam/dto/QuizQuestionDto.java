@@ -23,3 +23,4 @@ public class QuizQuestionDto {
     private List<QuizOptionDto> options;
     private String explanation;
 }
+

@@ -262,7 +262,7 @@ export default function StudentJoinPage() {
                 {loading ? 'Verificando Código...' : 'Continuar'}
               </Button>
 
-              {/* Botón directo a Quizz en Vivo (Kahoot) */}
+              {/* Botón directo a Quizz en Vivo */}
               <Button
                 variant="outlined"
                 fullWidth

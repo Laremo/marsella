@@ -12,3 +12,4 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     List<Quiz> findByTeacherOrderByCreatedAtDesc(User teacher);
     List<Quiz> findBySchoolGroupIdOrderByCreatedAtDesc(Long schoolGroupId);
 }
+

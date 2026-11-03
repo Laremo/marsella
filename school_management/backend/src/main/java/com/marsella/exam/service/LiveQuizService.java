@@ -284,7 +284,7 @@ public class LiveQuizService {
 
         if (isCorrect) {
             double timeRatio = Math.min(1.0, Math.max(0.0, (double) responseTimeMs / (double) timeLimitMs));
-            // Kahoot Speed Formula: round((1 - (responseTimeMs / (2 * timeLimitMs))) * basePoints)
+            // Speed Formula: round((1 - (responseTimeMs / (2 * timeLimitMs))) * basePoints)
             int basePoints = question.getPoints() != null ? question.getPoints() : 1000;
             int speedScore = (int) Math.round((1.0 - (timeRatio / 2.0)) * basePoints);
 
@@ -674,3 +674,4 @@ public class LiveQuizService {
         return String.valueOf(System.currentTimeMillis() % 1000000);
     }
 }
+
