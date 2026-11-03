@@ -125,9 +125,11 @@ export default function StudentQuizRoomPage() {
         }
 
         // If player already answered on backend, sync local state
-        if (rState.currentQuestion && playerRes?.data?.answers && playerRes.data.answers[rState.currentQuestion.id]) {
+        if (playerRes?.data?.hasAnsweredCurrentQuestion) {
           setHasAnsweredCurrentQuestion(true);
-          setSelectedOption(playerRes.data.answers[rState.currentQuestion.id].selectedOption);
+          if (playerRes.data.selectedOptionId) {
+            setSelectedOption(playerRes.data.selectedOptionId);
+          }
         }
 
         // Trigger confetti on podium
@@ -190,11 +192,14 @@ export default function StudentQuizRoomPage() {
     try {
       const res = await quizApi.submitQuizAnswer(pin, {
         playerToken,
-        questionId: roomState.currentQuestion.id,
+        selectedOptionId: optId,
         selectedOption: optId,
+        questionId: roomState.currentQuestion.id,
         clientResponseTimeMs: responseTimeMs,
       });
-      setPlayerState(res.data);
+      if (res.data) {
+        setPlayerState(res.data);
+      }
     } catch (err) {
       console.error('Error submitting answer:', err);
     } finally {
@@ -326,7 +331,10 @@ export default function StudentQuizRoomPage() {
   // STEP 2: IN ROOM PLAYER VIEW
   const status = roomState?.status || 'LOBBY';
   const currentQId = roomState?.currentQuestion?.id;
-  const currentAnswer = currentQId && playerState?.answers ? playerState.answers[currentQId] : null;
+  const hasAnswered = Boolean(playerState?.hasAnsweredCurrentQuestion || hasAnsweredCurrentQuestion);
+  const isCorrect = Boolean(playerState?.isCorrect);
+  const pointsAwarded = playerState?.pointsAwarded ?? 0;
+  const streakBonus = playerState?.streakBonus ?? 0;
 
   return (
     <Box
@@ -537,8 +545,8 @@ export default function StudentQuizRoomPage() {
               textAlign: 'center',
             }}
           >
-            {currentAnswer ? (
-              currentAnswer.isCorrect ? (
+            {hasAnswered ? (
+              isCorrect ? (
                 <Paper
                   sx={{
                     p: 4,
@@ -555,17 +563,17 @@ export default function StudentQuizRoomPage() {
                     ¡Correcto!
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-                    +{currentAnswer.totalPointsEarned} pts
+                    +{pointsAwarded} pts
                   </Typography>
-                  {currentAnswer.streakBonus > 0 && (
+                  {streakBonus > 0 && (
                     <Chip
                       icon={<FireIcon sx={{ fontSize: '15px !important', color: '#fff !important' }} />}
-                      label={`¡Racha x${playerState?.currentStreak}! (+${currentAnswer.streakBonus} pts)`}
+                      label={`¡Racha x${playerState?.currentStreak || 1}! (+${streakBonus} pts)`}
                       sx={{ bgcolor: 'rgba(0,0,0,0.2)', color: '#fff', fontWeight: 800, mb: 1 }}
                     />
                   )}
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    Puntaje total: {playerState?.totalScore} pts
+                    Puntaje total: {playerState?.totalScore ?? 0} pts
                   </Typography>
                 </Paper>
               ) : (
@@ -588,7 +596,7 @@ export default function StudentQuizRoomPage() {
                     +0 pts
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    Racha reiniciada a 0
+                    Racha reiniciada a 0 • Puntaje total: {playerState?.totalScore ?? 0} pts
                   </Typography>
                 </Paper>
               )

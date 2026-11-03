@@ -264,6 +264,9 @@ public class LiveQuizService {
         QuizQuestion question = questions.get(currentIdx);
         List<QuizOptionDto> options = quizService.parseOptions(question.getOptionsJson());
 
+        if (request.getSelectedOptionId() == null || request.getSelectedOptionId().trim().isEmpty()) {
+            throw new IllegalArgumentException("Debes seleccionar una opción de respuesta.");
+        }
         String chosenOptionId = request.getSelectedOptionId().trim();
         QuizOptionDto selectedOption = options.stream()
                 .filter(o -> o.getId().equalsIgnoreCase(chosenOptionId))
