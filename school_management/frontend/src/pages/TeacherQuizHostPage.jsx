@@ -54,6 +54,7 @@ export default function TeacherQuizHostPage() {
   const [error, setError] = useState('');
   const [advancing, setAdvancing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Local animated countdown for preview and active phases
   const [countdown, setCountdown] = useState(15);
@@ -175,8 +176,33 @@ export default function TeacherQuizHostPage() {
     }
   };
 
-  const handleExportExcel = () => {
-    window.open(quizApi.getExportReportUrl(pin), '_blank');
+  const handleExportExcel = async () => {
+    try {
+      setExportLoading(true);
+      const res = await quizApi.exportSessionReportBlob(pin);
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      let filename = `Reporte_Quiz_${pin}.xlsx`;
+      const disposition = res.headers['content-disposition'];
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading excel report', err);
+      alert('Error al descargar el archivo de Excel. Asegúrate de tener permisos o que la partida continúe activa.');
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   if (loading && !state) {
@@ -459,12 +485,33 @@ export default function TeacherQuizHostPage() {
                 fontWeight: 900,
                 letterSpacing: '-0.02em',
                 lineHeight: 1.25,
-                mb: 4,
+                mb: currentQuestion?.imageUrl ? 2.5 : 4,
                 color: 'text.primary',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
               }}
             >
               {currentQuestion?.prompt || 'Cargando pregunta...'}
             </Typography>
+
+            {currentQuestion?.imageUrl && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Box
+                  component="img"
+                  src={currentQuestion.imageUrl}
+                  alt="Imagen de la pregunta"
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: { xs: 200, md: 280 },
+                    objectFit: 'contain',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    bgcolor: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.8)',
+                    p: 0.5,
+                  }}
+                />
+              </Box>
+            )}
 
             <Box
               sx={{
@@ -523,6 +570,8 @@ export default function TeacherQuizHostPage() {
                   flex: 1,
                   px: 3,
                   lineHeight: 1.2,
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
                 }}
               >
                 {currentQuestion?.prompt}
@@ -564,6 +613,26 @@ export default function TeacherQuizHostPage() {
               }}
             />
 
+            {/* Question Image if present */}
+            {currentQuestion?.imageUrl && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+                <Box
+                  component="img"
+                  src={currentQuestion.imageUrl}
+                  alt="Imagen de la pregunta"
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: { xs: 180, md: 250 },
+                    objectFit: 'contain',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    bgcolor: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.8)',
+                    p: 0.5,
+                  }}
+                />
+              </Box>
+            )}
+
             {/* 4 Options Grid */}
             <Grid container spacing={2.5} sx={{ flex: 1 }}>
               {currentQuestion?.options?.map((opt, idx) => {
@@ -582,6 +651,7 @@ export default function TeacherQuizHostPage() {
                         alignItems: 'center',
                         gap: 2.5,
                         boxShadow: `0 6px 16px ${style.hex}40`,
+                        overflow: 'hidden',
                       }}
                     >
                       <Box
@@ -590,6 +660,7 @@ export default function TeacherQuizHostPage() {
                           fontWeight: 900,
                           lineHeight: 1,
                           opacity: 0.95,
+                          flexShrink: 0,
                         }}
                       >
                         {style.shape}
@@ -600,6 +671,9 @@ export default function TeacherQuizHostPage() {
                           fontWeight: 800,
                           letterSpacing: '-0.01em',
                           lineHeight: 1.25,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          hyphens: 'auto',
                         }}
                       >
                         {opt.text}
@@ -638,6 +712,26 @@ export default function TeacherQuizHostPage() {
               </Button>
             </Box>
 
+            {/* Question Image if present in results review */}
+            {currentQuestion?.imageUrl && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+                <Box
+                  component="img"
+                  src={currentQuestion.imageUrl}
+                  alt="Imagen de la pregunta"
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: 180,
+                    objectFit: 'contain',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                    bgcolor: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.8)',
+                    p: 0.5,
+                  }}
+                />
+              </Box>
+            )}
+
             {/* Distribution chart and feedback */}
             <Grid container spacing={2.5} sx={{ mb: 3 }}>
               {currentQuestion?.options?.map((opt, idx) => {
@@ -661,9 +755,9 @@ export default function TeacherQuizHostPage() {
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Typography sx={{ fontSize: '1.8rem', lineHeight: 1 }}>{style.shape}</Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1, pr: 1 }}>
+                          <Typography sx={{ fontSize: '1.8rem', lineHeight: 1, flexShrink: 0 }}>{style.shape}</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                             {opt.text}
                           </Typography>
                         </Box>
@@ -945,8 +1039,9 @@ export default function TeacherQuizHostPage() {
               <Button
                 variant="contained"
                 size="large"
-                startIcon={<ExportIcon />}
+                startIcon={exportLoading ? <CircularProgress size={20} color="inherit" /> : <ExportIcon />}
                 onClick={handleExportExcel}
+                disabled={exportLoading}
                 sx={{
                   borderRadius: '10px',
                   bgcolor: '#16a34a',
@@ -957,7 +1052,7 @@ export default function TeacherQuizHostPage() {
                   '&:hover': { bgcolor: '#15803d' },
                 }}
               >
-                Descargar Reporte Excel (.xlsx)
+                {exportLoading ? 'Generando Excel...' : 'Descargar Reporte Excel (.xlsx)'}
               </Button>
 
               <Button

@@ -16,6 +16,10 @@ export const quizApi = {
   advanceSessionPhase: (pin) => api.post(`/teacher/quizzes/live/${pin}/advance`),
   getSessionReport: (pin) => api.get(`/teacher/quizzes/live/${pin}/report`),
   getExportReportUrl: (pin) => `/api/teacher/quizzes/live/${pin}/report/export`,
+  exportSessionReportBlob: (pin) =>
+    api.get(`/teacher/quizzes/live/${pin}/report/export`, {
+      responseType: 'blob',
+    }),
 
   // Student / Live Quiz
   getLiveState: (pin, playerToken) =>

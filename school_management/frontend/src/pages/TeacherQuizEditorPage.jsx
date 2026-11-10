@@ -35,6 +35,8 @@ import {
   CheckCircle as CorrectIcon,
   RadioButtonUnchecked as UncheckedIcon,
   Restore as RestoreIcon,
+  Image as ImageIcon,
+  UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import quizApi from '../services/quizApi';
@@ -74,6 +76,7 @@ export default function TeacherQuizEditorPage() {
     {
       id: 1,
       prompt: '',
+      imageUrl: '',
       timeLimitSeconds: 15,
       points: 1000,
       explanation: '',
@@ -138,6 +141,7 @@ export default function TeacherQuizEditorPage() {
           setQuestions(
             data.questions.map((q, idx) => ({
               ...q,
+              imageUrl: q.imageUrl || '',
               tempId: idx + 1,
               options: ensureFourOptions(q.options),
             }))
@@ -226,6 +230,7 @@ export default function TeacherQuizEditorPage() {
         {
           id: 1,
           prompt: '',
+          imageUrl: '',
           timeLimitSeconds: 15,
           points: 1000,
           explanation: '',
@@ -269,6 +274,7 @@ export default function TeacherQuizEditorPage() {
       {
         tempId: Date.now(),
         prompt: '',
+        imageUrl: '',
         timeLimitSeconds: defaultTimeLimitSeconds,
         points: basePoints,
         explanation: '',
@@ -340,6 +346,41 @@ export default function TeacherQuizEditorPage() {
     });
   };
 
+  const handleImageUpload = (qIdx, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setSnack({ open: true, message: 'La imagen debe ser menor a 5MB.', severity: 'warning' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.85);
+        handleQuestionChange(qIdx, 'imageUrl', compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       setSnack({ open: true, message: 'Por favor asigna un título al quizz.', severity: 'warning' });
@@ -387,6 +428,7 @@ export default function TeacherQuizEditorPage() {
         schoolGroupId: schoolGroupId ? parseInt(schoolGroupId, 10) : null,
         questions: questions.map((q, idx) => ({
           prompt: q.prompt.trim(),
+          imageUrl: (q.imageUrl || '').trim() || null,
           timeLimitSeconds: parseInt(q.timeLimitSeconds, 10) || 15,
           points: parseInt(q.points, 10) || 1000,
           explanation: (q.explanation || '').trim(),
@@ -661,6 +703,105 @@ export default function TeacherQuizEditorPage() {
               onChange={(e) => handleQuestionChange(qIdx, 'prompt', e.target.value)}
               sx={{ mb: 2.5 }}
             />
+
+            {/* Image attachment for Question */}
+            <Box
+              sx={{
+                mb: 2.5,
+                p: 2,
+                borderRadius: '10px',
+                border: '1px dashed',
+                borderColor: q.imageUrl ? 'primary.main' : 'divider',
+                bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: q.imageUrl ? 2 : 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ImageIcon color={q.imageUrl ? 'primary' : 'action'} fontSize="small" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Imagen de apoyo para la pregunta (Opcional)
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadFileIcon />}
+                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Subir imagen desde equipo
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(qIdx, file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </Button>
+                  {q.imageUrl && (
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => handleQuestionChange(qIdx, 'imageUrl', '')}
+                      startIcon={<DeleteIcon />}
+                      sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Quitar imagen
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="O pega una URL/enlace directo de imagen"
+                placeholder="https://ejemplo.com/diagrama-red.png"
+                value={q.imageUrl && !q.imageUrl.startsWith('data:') ? q.imageUrl : ''}
+                onChange={(e) => handleQuestionChange(qIdx, 'imageUrl', e.target.value)}
+                helperText="La imagen se proyectará en la pantalla grande y en los teléfonos de los alumnos al responder."
+                sx={{ mb: q.imageUrl ? 2 : 0 }}
+              />
+
+              {q.imageUrl && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mt: 1.5,
+                    p: 1.5,
+                    bgcolor: isDark ? '#111827' : '#ffffff',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={q.imageUrl}
+                    alt="Vista previa"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                    sx={{
+                      maxHeight: 220,
+                      maxWidth: '100%',
+                      objectFit: 'contain',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                    Vista previa de la imagen que verán los alumnos
+                  </Typography>
+                </Box>
+              )}
+            </Box>
 
             {/* Question timing & points */}
             <Grid container spacing={2} sx={{ mb: 3 }}>

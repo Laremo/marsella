@@ -465,14 +465,42 @@ export default function StudentQuizRoomPage() {
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
+              px: 2,
             }}
           >
             <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 800, mb: 1 }}>
               ¡Pregunta {(roomState?.currentQuestionIndex || 0) + 1}!
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 900, mb: 3, maxWidth: 500 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 900,
+                mb: 2,
+                maxWidth: 500,
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
+                lineHeight: 1.25,
+              }}
+            >
               {roomState?.currentQuestion?.prompt}
             </Typography>
+
+            {roomState?.currentQuestion?.imageUrl && (
+              <Box
+                component="img"
+                src={roomState.currentQuestion.imageUrl}
+                alt="Imagen de la pregunta"
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: { xs: 180, sm: 260 },
+                  objectFit: 'contain',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                  mb: 2.5,
+                }}
+              />
+            )}
+
             <Typography variant="body1" sx={{ fontWeight: 700, color: '#1368CE' }}>
               👀 Mira las opciones y prepárate para tocar...
             </Typography>
@@ -483,57 +511,115 @@ export default function StudentQuizRoomPage() {
         {status === 'QUESTION_ACTIVE' && (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {!hasAnsweredCurrentQuestion ? (
-              <Grid container spacing={2} sx={{ flex: 1 }}>
-                {OPTION_BUTTONS.map((btn) => {
-                  const optionData = roomState?.currentQuestion?.options?.find((o) => o.id === btn.id);
-                  const optionText = optionData ? optionData.text : `Opción ${btn.id}`;
-
-                  return (
-                    <Grid item xs={12} sm={6} key={btn.id} sx={{ display: 'flex' }}>
-                      <Button
-                        fullWidth
-                        onClick={() => handleSelectAnswer(btn.id)}
-                        disabled={submittingAnswer}
+              <>
+                {/* Mobile question prompt + image header */}
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    mb: 2,
+                    borderRadius: '12px',
+                    textAlign: 'center',
+                    bgcolor: isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 800,
+                      lineHeight: 1.3,
+                      wordBreak: 'break-word',
+                      overflowWrap: 'anywhere',
+                      fontSize: { xs: '0.92rem', sm: '1.05rem' },
+                    }}
+                  >
+                    {roomState?.currentQuestion?.prompt}
+                  </Typography>
+                  {roomState?.currentQuestion?.imageUrl && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
+                      <Box
+                        component="img"
+                        src={roomState.currentQuestion.imageUrl}
+                        alt="Imagen de la pregunta"
                         sx={{
-                          flex: 1,
-                          minHeight: { xs: 130, sm: 160 },
-                          borderRadius: '12px',
-                          bgcolor: btn.hex,
-                          color: '#fff',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 1.5,
-                          p: 2,
-                          boxShadow: `0 6px 16px ${btn.hex}40`,
-                          transition: 'all 0.15s ease',
-                          '&:hover': {
-                            bgcolor: btn.hex,
-                            transform: 'scale(1.02)',
-                          },
-                          '&:active': {
-                            transform: 'scale(0.97)',
-                          },
+                          maxWidth: '100%',
+                          maxHeight: { xs: 130, sm: 180 },
+                          objectFit: 'contain',
+                          borderRadius: '8px',
                         }}
-                      >
-                        <Box sx={{ fontSize: '2.5rem', lineHeight: 1 }}>{btn.shape}</Box>
-                        <Typography
-                          variant="h6"
+                      />
+                    </Box>
+                  )}
+                </Paper>
+
+                <Grid container spacing={1.5} sx={{ flex: 1 }}>
+                  {OPTION_BUTTONS.map((btn) => {
+                    const optionData = roomState?.currentQuestion?.options?.find((o) => o.id === btn.id);
+                    const optionText = optionData ? optionData.text : `Opción ${btn.id}`;
+
+                    return (
+                      <Grid item xs={12} sm={6} key={btn.id} sx={{ display: 'flex' }}>
+                        <Button
+                          fullWidth
+                          onClick={() => handleSelectAnswer(btn.id)}
+                          disabled={submittingAnswer}
                           sx={{
-                            fontWeight: 800,
-                            letterSpacing: '-0.01em',
-                            textAlign: 'center',
-                            lineHeight: 1.2,
+                            flex: 1,
+                            minHeight: { xs: 95, sm: 135 },
+                            borderRadius: '12px',
+                            bgcolor: btn.hex,
+                            color: '#fff',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 1,
+                            p: { xs: 1.2, sm: 2 },
+                            width: '100%',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            boxShadow: `0 6px 16px ${btn.hex}40`,
+                            transition: 'all 0.15s ease',
+                            '&:hover': {
+                              bgcolor: btn.hex,
+                              transform: 'scale(1.02)',
+                            },
+                            '&:active': {
+                              transform: 'scale(0.97)',
+                            },
                           }}
                         >
-                          {optionText}
-                        </Typography>
-                      </Button>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+                          <Box sx={{ fontSize: { xs: '1.8rem', sm: '2.3rem' }, lineHeight: 1 }}>{btn.shape}</Box>
+                          <Typography
+                            variant="body1"
+                            sx={{
+                              fontWeight: 800,
+                              letterSpacing: '-0.01em',
+                              textAlign: 'center',
+                              lineHeight: 1.2,
+                              width: '100%',
+                              maxWidth: '100%',
+                              wordBreak: 'break-word',
+                              overflowWrap: 'anywhere',
+                              hyphens: 'auto',
+                              fontSize:
+                                optionText.length > 36
+                                  ? '0.78rem'
+                                  : optionText.length > 22
+                                  ? '0.88rem'
+                                  : { xs: '0.95rem', sm: '1.1rem' },
+                            }}
+                          >
+                            {optionText}
+                          </Typography>
+                        </Button>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </>
             ) : (
               <Box
                 sx={{

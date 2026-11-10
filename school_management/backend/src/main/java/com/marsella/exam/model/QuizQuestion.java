@@ -26,7 +26,7 @@ public class QuizQuestion {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String prompt;
 
-    @Column(length = 1024)
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
 
     @Builder.Default
