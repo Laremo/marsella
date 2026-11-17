@@ -171,6 +171,7 @@ export default function TeacherExamEditorPage() {
             const clonedQuestions = (exam.questions || []).map((q, idx) => ({
               questionOrder: idx + 1,
               prompt: q.prompt,
+              imageUrl: q.imageUrl,
               type: q.type,
               points: q.points,
               questionData: q.questionData,
@@ -832,6 +833,28 @@ export default function TeacherExamEditorPage() {
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                             {q.prompt}
                           </Typography>
+                          {q.imageUrl && (
+                            <Box sx={{ mt: 1 }}>
+                              <Box
+                                component="img"
+                                src={q.imageUrl}
+                                alt="Imagen de pregunta"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                                sx={{
+                                  maxHeight: 120,
+                                  maxWidth: 240,
+                                  objectFit: 'contain',
+                                  borderRadius: '6px',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: isDark ? '#111827' : '#f8fafc',
+                                  p: 0.5,
+                                }}
+                              />
+                            </Box>
+                          )}
                         </Box>
                       </Box>
 

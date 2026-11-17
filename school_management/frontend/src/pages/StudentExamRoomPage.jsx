@@ -394,6 +394,37 @@ export default function StudentExamRoomPage() {
                     {q.prompt}
                   </Typography>
 
+                  {/* Question Image if present */}
+                  {q.imageUrl && (
+                    <Box
+                      sx={{
+                        my: 2,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        p: 1.5,
+                        borderRadius: '10px',
+                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                        border: `1px solid ${theme.palette.divider}`,
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={q.imageUrl}
+                        alt="Imagen de apoyo para la pregunta"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                        sx={{
+                          maxHeight: { xs: 260, sm: 380 },
+                          maxWidth: '100%',
+                          objectFit: 'contain',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </Box>
+                  )}
+
                   {/* Render based on Question Type */}
                   {q.type === 'MULTIPLE_CHOICE' && (
                     <MultipleChoiceQuestion

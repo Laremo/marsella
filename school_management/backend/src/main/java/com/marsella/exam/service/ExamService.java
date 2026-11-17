@@ -85,6 +85,7 @@ public class ExamService {
                         .exam(exam)
                         .questionOrder(order++)
                         .prompt(qDto.getPrompt().trim())
+                        .imageUrl(qDto.getImageUrl())
                         .type(qDto.getType())
                         .points(points)
                         .questionData(qDto.getQuestionData())
@@ -165,6 +166,7 @@ public class ExamService {
                         .exam(cloned)
                         .questionOrder(sq.getQuestionOrder())
                         .prompt(sq.getPrompt())
+                        .imageUrl(sq.getImageUrl())
                         .type(sq.getType())
                         .points(sq.getPoints())
                         .questionData(sq.getQuestionData())
@@ -224,6 +226,7 @@ public class ExamService {
                     Question existing = existingById.get(qDto.getId());
                     existing.setQuestionOrder(order++);
                     existing.setPrompt(qDto.getPrompt().trim());
+                    existing.setImageUrl(qDto.getImageUrl());
                     existing.setType(qDto.getType());
                     existing.setPoints(points);
                     existing.setQuestionData(qDto.getQuestionData());
@@ -234,6 +237,7 @@ public class ExamService {
                             .exam(exam)
                             .questionOrder(order++)
                             .prompt(qDto.getPrompt().trim())
+                            .imageUrl(qDto.getImageUrl())
                             .type(qDto.getType())
                             .points(points)
                             .questionData(qDto.getQuestionData())
@@ -416,6 +420,7 @@ public class ExamService {
                 .id(q.getId())
                 .questionOrder(q.getQuestionOrder())
                 .prompt(q.getPrompt())
+                .imageUrl(q.getImageUrl())
                 .type(q.getType())
                 .points(q.getPoints())
                 .questionData(q.getQuestionData())

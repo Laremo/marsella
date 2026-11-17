@@ -78,6 +78,7 @@ public class StudentExamService {
                         .id(q.getId())
                         .questionOrder(q.getQuestionOrder())
                         .prompt(q.getPrompt())
+                        .imageUrl(q.getImageUrl())
                         .type(q.getType())
                         .points(q.getPoints())
                         .questionData(q.getQuestionData())

@@ -27,6 +27,8 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   HelpOutline as HelpIcon,
+  Image as ImageIcon,
+  UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import CodeBlockView from './CodeBlockView';
 
@@ -44,6 +46,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
   const isDark = theme.palette.mode === 'dark';
   const [type, setType] = useState('MULTIPLE_CHOICE');
   const [prompt, setPrompt] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [points, setPoints] = useState(defaultPoints !== undefined ? defaultPoints : 1.0);
   const [error, setError] = useState('');
 
@@ -78,6 +81,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
     if (initialData) {
       setType(initialData.type || 'MULTIPLE_CHOICE');
       setPrompt(initialData.prompt || '');
+      setImageUrl(initialData.imageUrl || '');
       setPoints(initialData.points !== undefined ? initialData.points : (defaultPoints !== undefined ? defaultPoints : 1.0));
 
       try {
@@ -118,6 +122,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
       // Reset defaults for a new question with the calculated default points
       setType('MULTIPLE_CHOICE');
       setPrompt('');
+      setImageUrl('');
       setPoints(defaultPoints !== undefined ? defaultPoints : 1.0);
       setCodeSnippet('def suma(a, b):\n    return a + b\n\nprint(suma(3, 4))');
       setCodeLanguage('python');
@@ -135,6 +140,41 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
       setError('');
     }
   }, [initialData, open, defaultPoints]);
+
+  const handleImageUpload = (file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen debe ser menor a 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.85);
+        setImageUrl(compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Multiple Choice handlers
   const handleAddOption = () => {
@@ -274,6 +314,7 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
     onSave({
       id: initialData?.id,
       prompt: prompt.trim(),
+      imageUrl: imageUrl.trim() || null,
       type,
       points: parseFloat(points),
       questionData: JSON.stringify(questionDataPayload),
@@ -335,6 +376,106 @@ export default function QuestionBuilderModal({ open, onClose, onSave, initialDat
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
+          </Grid>
+
+          {/* Image attachment for Question */}
+          <Grid item xs={12}>
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: '10px',
+                border: '1px dashed',
+                borderColor: imageUrl ? 'primary.main' : 'divider',
+                bgcolor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: imageUrl ? 2 : 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ImageIcon color={imageUrl ? 'primary' : 'action'} fontSize="small" />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Imagen de apoyo para la pregunta (Opcional)
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadFileIcon />}
+                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Subir imagen desde equipo
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </Button>
+                  {imageUrl && (
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setImageUrl('')}
+                      startIcon={<DeleteIcon />}
+                      sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Quitar imagen
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="O pega una URL/enlace directo de imagen"
+                placeholder="https://ejemplo.com/diagrama.png"
+                value={imageUrl && !imageUrl.startsWith('data:') ? imageUrl : ''}
+                onChange={(e) => setImageUrl(e.target.value)}
+                helperText="La imagen se mostrará al alumno junto con el enunciado al resolver el examen."
+                sx={{ mb: imageUrl ? 2 : 0 }}
+              />
+
+              {imageUrl && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mt: 1.5,
+                    p: 1.5,
+                    bgcolor: isDark ? '#111827' : '#ffffff',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={imageUrl}
+                    alt="Vista previa"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                    sx={{
+                      maxHeight: 220,
+                      maxWidth: '100%',
+                      objectFit: 'contain',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                    Vista previa de la imagen que verán los alumnos
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           </Grid>
         </Grid>
 

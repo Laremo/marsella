@@ -21,6 +21,8 @@ public class QuestionDto {
     @NotBlank(message = "Question prompt is required")
     private String prompt;
 
+    private String imageUrl;
+
     @NotNull(message = "Question type is required")
     private QuestionType type;
 
