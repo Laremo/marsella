@@ -249,6 +249,50 @@ public class StudentExamService {
     }
 
     @Transactional(readOnly = true)
+    public StudentExamSessionResponse getExamSession(Long submissionId) {
+        StudentSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new NoSuchElementException("Sesión de examen no encontrada"));
+
+        Exam exam = submission.getExam();
+        boolean isExamClosed = LocalDateTime.now().isAfter(exam.getEndDate()) || Boolean.FALSE.equals(exam.getIsActive());
+
+        List<StudentQuestionDto> studentQuestions = exam.getQuestions().stream().map(q ->
+                StudentQuestionDto.builder()
+                        .id(q.getId())
+                        .questionOrder(q.getQuestionOrder())
+                        .prompt(q.getPrompt())
+                        .imageUrl(q.getImageUrl())
+                        .type(q.getType())
+                        .points(q.getPoints())
+                        .questionData(q.getQuestionData())
+                        .build()
+        ).collect(Collectors.toList());
+
+        String status = Boolean.TRUE.equals(submission.getIsCompleted()) ? "ALREADY_SUBMITTED" : "RESUMED";
+
+        return StudentExamSessionResponse.builder()
+                .submissionId(submission.getId())
+                .examId(exam.getId())
+                .examCode(exam.getCode())
+                .examTitle(exam.getTitle())
+                .examDescription(exam.getDescription())
+                .grade(exam.getGrade() != null ? exam.getGrade() : resolveGrade(exam))
+                .groupName(exam.getGroupName() != null ? exam.getGroupName() : "A")
+                .block(exam.getBlock() != null ? exam.getBlock() : resolveBlock(exam))
+                .studentName(submission.getStudentName())
+                .startDate(exam.getStartDate())
+                .endDate(exam.getEndDate())
+                .totalPoints(exam.getTotalPoints())
+                .isCompleted(submission.getIsCompleted())
+                .score(isExamClosed ? submission.getScore() : null)
+                .canViewScore(isExamClosed)
+                .status(status)
+                .savedAnswersJson(submission.getAnswersJson())
+                .questions(studentQuestions)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
     public SubmissionSummaryDto getSubmissionStatus(Long submissionId) {
         StudentSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new NoSuchElementException("Sesión de examen no encontrada"));

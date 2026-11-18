@@ -4,6 +4,7 @@ import { Box } from '@mui/material';
 import { ThemeModeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import SessionExpiredModal from './components/SessionExpiredModal';
 
 // Pages
 import StudentJoinPage from './pages/StudentJoinPage';
@@ -171,6 +172,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Box>
+          <SessionExpiredModal />
         </Box>
       </AuthProvider>
     </ThemeModeProvider>
