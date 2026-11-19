@@ -20,7 +20,7 @@ export default function SessionExpiredModal() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const [username, setUsername] = useState(user?.username || 'admin');
+  const [username, setUsername] = useState(user?.username || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

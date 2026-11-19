@@ -118,11 +118,6 @@ export default function StudentJoinPage() {
     setError('');
   };
 
-  const handleUseDemo = () => {
-    setCode('DEMO-2026');
-    setError('');
-  };
-
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
       {/* Top Floating Theme Toggle */}

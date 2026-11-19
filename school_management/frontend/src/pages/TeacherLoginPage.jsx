@@ -20,8 +20,8 @@ import { useAuth } from '../context/AuthContext';
 export default function TeacherLoginPage() {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
