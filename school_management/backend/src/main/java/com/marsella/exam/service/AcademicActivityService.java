@@ -32,7 +32,7 @@ public class AcademicActivityService {
 
     @Transactional(readOnly = true)
     public List<ActivityResponse> getGroupActivities(Long teacherId, Long groupId, Long periodId) {
-        SchoolGroup group = groupRepository.findByIdAndTeacherId(groupId, teacherId)
+        SchoolGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
 
         List<AcademicActivity> list;
@@ -164,7 +164,7 @@ public class AcademicActivityService {
      */
     @Transactional(readOnly = true)
     public ConsolidatedGradebookDto getConsolidatedGradebook(Long teacherId, Long groupId, Long periodId) {
-        SchoolGroup group = groupRepository.findByIdAndTeacherId(groupId, teacherId)
+        SchoolGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
 
         AcademicPeriod period = periodRepository.findByIdAndSchoolGroupId(periodId, group.getId())
@@ -378,8 +378,9 @@ public class AcademicActivityService {
      */
     @Transactional(readOnly = true)
     public AnnualGradebookDto getAnnualGradebook(Long teacherId, Long groupId) {
-        SchoolGroup group = groupRepository.findByIdAndTeacherIdWithPeriods(groupId, teacherId)
-                .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
+        SchoolGroup group = groupRepository.findByIdWithPeriods(groupId)
+                .orElseGet(() -> groupRepository.findById(groupId)
+                        .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado")));
 
         List<Student> students = studentRepository.findBySchoolGroupIdOrderByFullNameAsc(group.getId());
         List<AcademicPeriod> periods = group.getPeriods();

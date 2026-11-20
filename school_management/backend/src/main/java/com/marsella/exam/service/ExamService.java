@@ -39,8 +39,14 @@ public class ExamService {
     }
 
     @Transactional(readOnly = true)
+    public List<ExamResponse> getAllExams() {
+        List<Exam> exams = examRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        return exams.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public ExamResponse getTeacherExam(Long teacherId, Long examId) {
-        Exam exam = examRepository.findByIdAndTeacherId(examId, teacherId)
+        Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
         return mapToResponse(exam);
     }

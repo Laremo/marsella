@@ -40,6 +40,32 @@ public class DataInitializer implements CommandLineRunner {
             return userRepository.save(user);
         });
 
+        // Seed default director if none exists
+        userRepository.findByUsername("directivo").orElseGet(() -> {
+            log.info("Seeding default director account: directivo / directivo123");
+            User user = User.builder()
+                    .username("directivo")
+                    .password(passwordEncoder.encode("directivo123"))
+                    .fullName("Dirección Escolar")
+                    .email("direccion@marsella.edu")
+                    .role("ROLE_DIRECTOR")
+                    .build();
+            return userRepository.save(user);
+        });
+
+        // Seed default student demo user if none exists
+        userRepository.findByUsername("alumno").orElseGet(() -> {
+            log.info("Seeding default student account: alumno / alumno123");
+            User user = User.builder()
+                    .username("alumno")
+                    .password(passwordEncoder.encode("alumno123"))
+                    .fullName("Alumno Ejemplo")
+                    .email("alumno@marsella.edu")
+                    .role("ROLE_STUDENT")
+                    .build();
+            return userRepository.save(user);
+        });
+
         // Seed a demo exam if no exams exist yet
         if (examRepository.count() == 0) {
             log.info("Seeding sample demonstration exam: DEMO-2026");

@@ -27,6 +27,9 @@ public class TeacherExamController {
 
     @GetMapping
     public ResponseEntity<List<ExamResponse>> getExams(@AuthenticationPrincipal User teacher) {
+        if ("ROLE_DIRECTOR".equals(teacher.getRole())) {
+            return ResponseEntity.ok(examService.getAllExams());
+        }
         return ResponseEntity.ok(examService.getTeacherExams(teacher.getId()));
     }
 

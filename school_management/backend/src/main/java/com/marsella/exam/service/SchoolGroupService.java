@@ -37,9 +37,16 @@ public class SchoolGroupService {
     }
 
     @Transactional(readOnly = true)
+    public List<SchoolGroupResponse> getAllGroups() {
+        List<SchoolGroup> groups = groupRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "grade", "name"));
+        return groups.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public SchoolGroupResponse getGroup(Long teacherId, Long groupId) {
-        SchoolGroup group = groupRepository.findByIdAndTeacherIdWithPeriods(groupId, teacherId)
-                .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
+        SchoolGroup group = groupRepository.findByIdWithPeriods(groupId)
+                .orElseGet(() -> groupRepository.findById(groupId)
+                        .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado")));
         return mapToResponse(group);
     }
 

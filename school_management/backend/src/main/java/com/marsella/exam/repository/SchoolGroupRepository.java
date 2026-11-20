@@ -16,4 +16,7 @@ public interface SchoolGroupRepository extends JpaRepository<SchoolGroup, Long> 
 
     @Query("SELECT g FROM SchoolGroup g LEFT JOIN FETCH g.periods WHERE g.id = :id AND g.teacher.id = :teacherId")
     Optional<SchoolGroup> findByIdAndTeacherIdWithPeriods(@Param("id") Long id, @Param("teacherId") Long teacherId);
+
+    @Query("SELECT g FROM SchoolGroup g LEFT JOIN FETCH g.periods WHERE g.id = :id")
+    Optional<SchoolGroup> findByIdWithPeriods(@Param("id") Long id);
 }

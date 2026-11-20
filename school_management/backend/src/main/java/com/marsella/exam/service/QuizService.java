@@ -37,6 +37,12 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public List<QuizDto> getQuizzesForTeacher(User teacher) {
+        if ("ROLE_DIRECTOR".equals(teacher.getRole())) {
+            return quizRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                    .stream()
+                    .map(this::mapToDto)
+                    .collect(Collectors.toList());
+        }
         return quizRepository.findByTeacherOrderByCreatedAtDesc(teacher)
                 .stream()
                 .map(this::mapToDto)
@@ -53,7 +59,7 @@ public class QuizService {
     public Quiz getQuizEntityById(Long id, User teacher) {
         Quiz quiz = quizRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz no encontrado con ID: " + id));
-        if (!quiz.getTeacher().getId().equals(teacher.getId())) {
+        if (!"ROLE_DIRECTOR".equals(teacher.getRole()) && !quiz.getTeacher().getId().equals(teacher.getId())) {
             throw new IllegalArgumentException("No tienes permiso para acceder a este quiz.");
         }
         return quiz;

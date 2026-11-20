@@ -32,6 +32,9 @@ public class SchoolGroupController {
 
     @GetMapping
     public ResponseEntity<List<SchoolGroupResponse>> getGroups(@AuthenticationPrincipal User teacher) {
+        if ("ROLE_DIRECTOR".equals(teacher.getRole())) {
+            return ResponseEntity.ok(groupService.getAllGroups());
+        }
         return ResponseEntity.ok(groupService.getTeacherGroups(teacher.getId()));
     }
 

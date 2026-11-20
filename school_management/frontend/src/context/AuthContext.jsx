@@ -78,8 +78,8 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/teacher/login';
   };
 
-  const register = async (username, password, fullName, email) => {
-    const res = await api.post('/auth/register', { username, password, fullName, email });
+  const register = async (username, password, fullName, email, role = 'ROLE_TEACHER') => {
+    const res = await api.post('/auth/register', { username, password, fullName, email, role });
     const { token: jwtToken, ...userData } = res.data;
     localStorage.setItem('token', jwtToken);
     localStorage.setItem('user', JSON.stringify(userData));
