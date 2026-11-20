@@ -100,6 +100,7 @@ export default function App() {
 
               {/* Student Portal Routes */}
               <Route path="/student/dashboard" element={<ProtectedStudentRoute><StudentDashboardPage /></ProtectedStudentRoute>} />
+              <Route path="/exam" element={<StudentJoinPage />} />
               <Route path="/student/exam-join" element={<StudentJoinPage />} />
               <Route path="/exam/:submissionId" element={<StudentExamRoomPage />} />
               <Route path="/exam/finished/:submissionId" element={<StudentExamFinishedPage />} />

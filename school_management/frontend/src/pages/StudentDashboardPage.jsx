@@ -48,7 +48,7 @@ export default function StudentDashboardPage() {
       bgLight: 'rgba(16, 185, 129, 0.08)',
       bgDark: 'rgba(16, 185, 129, 0.2)',
       border: '#10B981',
-      action: () => navigate('/student/exam-join'),
+      action: () => navigate('/exam'),
     },
     {
       title: 'Quizz en Vivo',

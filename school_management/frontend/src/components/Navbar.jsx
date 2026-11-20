@@ -38,6 +38,7 @@ export default function Navbar() {
     location.pathname === '/' ||
     location.pathname === '/login' ||
     location.pathname === '/register' ||
+    location.pathname === '/exam' ||
     location.pathname.startsWith('/student/') ||
     location.pathname.startsWith('/director/') ||
     location.pathname.startsWith('/exam/') ||
