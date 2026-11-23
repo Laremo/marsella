@@ -28,6 +28,7 @@ public class ExamService {
     private final StudentSubmissionRepository submissionRepository;
     private final ObjectMapper objectMapper;
     private final ExcelExportService excelExportService;
+    private final ExamDocumentExportService examDocumentExportService;
     private final GradingService gradingService;
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private final SecureRandom random = new SecureRandom();
@@ -384,6 +385,49 @@ public class ExamService {
             log.error("Error al generar el archivo Excel de calificaciones para examen {}", examId, e);
             throw new RuntimeException("Error al generar el reporte en Excel: " + e.getMessage());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportExamToDocx(User user, Long examId, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        try {
+            return examDocumentExportService.generateExamDocx(exam, withAnswers);
+        } catch (Exception e) {
+            log.error("Error al exportar examen a Word {}", examId, e);
+            throw new RuntimeException("Error al exportar el examen a Word: " + e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportExamToPdf(User user, Long examId, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        try {
+            return examDocumentExportService.generateExamPdf(exam, withAnswers);
+        } catch (Exception e) {
+            log.error("Error al exportar examen a PDF {}", examId, e);
+            throw new RuntimeException("Error al exportar el examen a PDF: " + e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public String getExamDocumentFilename(User user, Long examId, String extension, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        String prefix = withAnswers ? "Clave_Respuestas_" : "Examen_";
+        String cleanTitle = exam.getTitle() != null ? exam.getTitle().trim().replaceAll("[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]", "_") : "Examen";
+        if (cleanTitle.length() > 30) cleanTitle = cleanTitle.substring(0, 30);
+        String cleanCode = exam.getCode() != null ? "_" + exam.getCode().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        String cleanGrade = exam.getGrade() != null ? "_" + exam.getGrade().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        String cleanGroup = exam.getGroupName() != null ? exam.getGroupName().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        return prefix + cleanTitle + cleanGrade + cleanGroup + cleanCode + "." + extension;
+    }
+
+    private Exam findExamForUser(User user, Long examId) {
+        if ("ROLE_DIRECTOR".equals(user.getRole())) {
+            return examRepository.findById(examId)
+                    .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
+        }
+        return examRepository.findByIdAndTeacherId(examId, user.getId())
+                .orElseThrow(() -> new NoSuchElementException("Examen no encontrado o no tiene permisos para acceder a él"));
     }
 
     @Transactional(readOnly = true)

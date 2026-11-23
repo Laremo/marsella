@@ -4,9 +4,10 @@
 # =============================================================================
 set -e
 
-echo "=== 1. Actualizando paquetes del sistema ==="
+echo "=== 1. Actualizando paquetes del sistema e instalando herramientas ==="
 sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y ca-certificates curl gnupg lsb-release git ufw
+sudo apt-get install -y ca-certificates curl gnupg lsb-release git ufw certbot
+sudo mkdir -p /etc/letsencrypt
 
 echo "=== 2. Configurando Firewall UFW ==="
 sudo ufw default deny incoming
@@ -36,5 +37,9 @@ if [ ! -f /swapfile ]; then
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 fi
 
+# Dar permisos de ejecución a los scripts del proyecto
+chmod +x init-ssl.sh backup-db.sh 2>/dev/null || true
+
 echo "=== Listo! Reinicia tu sesión de SSH para aplicar permisos de Docker ==="
-echo "Para arrancar la app: docker compose -f docker-compose.prod.yml --env-file .env up -d --build"
+echo "1. Configura tus secretos: cp .env.production.example .env && nano .env"
+echo "2. Para configurar SSL y arrancar: sudo ./init-ssl.sh"

@@ -33,8 +33,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Error: SPRING_DATASOURCE_PASSWORD es obligatoria}
       JWT_SECRET: ${JWT_SECRET:?Error: JWT_SECRET es obligatoria}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-604800000}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      DIRECTOR_INITIAL_PASSWORD: ${DIRECTOR_INITIAL_PASSWORD:-}
       TZ: ${TZ:-America/Mexico_City}
-      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms512m -Xmx1536m}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx896m}
     networks:
       - exam_network
 
@@ -51,6 +54,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./frontend/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - exam_network
 

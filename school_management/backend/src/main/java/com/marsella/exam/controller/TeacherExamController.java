@@ -144,6 +144,48 @@ public class TeacherExamController {
         }
     }
 
+    @GetMapping("/{id}/export/docx")
+    public ResponseEntity<byte[]> exportExamDocx(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean withAnswers) {
+        try {
+            byte[] docxBytes = examService.exportExamToDocx(teacher, id, withAnswers);
+            String filename = examService.getExamDocumentFilename(teacher, id, "docx", withAnswers);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    .body(docxBytes);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            log.error("Error al exportar examen a Word {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/{id}/export/pdf")
+    public ResponseEntity<byte[]> exportExamPdf(
+            @AuthenticationPrincipal User teacher,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean withAnswers) {
+        try {
+            byte[] pdfBytes = examService.exportExamToPdf(teacher, id, withAnswers);
+            String filename = examService.getExamDocumentFilename(teacher, id, "pdf", withAnswers);
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                    .body(pdfBytes);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            log.error("Error al exportar examen a PDF {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @PostMapping("/{id}/recalculate-grades")
     public ResponseEntity<?> recalculateGrades(
             @AuthenticationPrincipal User teacher,

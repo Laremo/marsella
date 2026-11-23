@@ -7,6 +7,7 @@ import com.marsella.exam.repository.QuizRepository;
 import com.marsella.exam.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -25,14 +26,26 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
 
+    @Value("${app.seed-demo:false}")
+    private boolean seedDemo;
+
+    @Value("${app.admin-initial-password:}")
+    private String adminInitialPassword;
+
+    @Value("${app.director-initial-password:}")
+    private String directorInitialPassword;
+
     @Override
     public void run(String... args) {
+        String adminPass = (adminInitialPassword != null && !adminInitialPassword.isBlank()) ? adminInitialPassword : "admin123";
+        String directorPass = (directorInitialPassword != null && !directorInitialPassword.isBlank()) ? directorInitialPassword : "directivo123";
+
         // Seed default professor if none exists
         User defaultTeacher = userRepository.findByUsername("admin").orElseGet(() -> {
-            log.info("Seeding default professor account: admin / admin123");
+            log.info("Seeding default professor account: admin");
             User user = User.builder()
                     .username("admin")
-                    .password(passwordEncoder.encode("admin123"))
+                    .password(passwordEncoder.encode(adminPass))
                     .fullName("Profesor Administrador")
                     .email("admin@marsella.edu")
                     .role("ROLE_TEACHER")
@@ -42,16 +55,21 @@ public class DataInitializer implements CommandLineRunner {
 
         // Seed default director if none exists
         userRepository.findByUsername("directivo").orElseGet(() -> {
-            log.info("Seeding default director account: directivo / directivo123");
+            log.info("Seeding default director account: directivo");
             User user = User.builder()
                     .username("directivo")
-                    .password(passwordEncoder.encode("directivo123"))
+                    .password(passwordEncoder.encode(directorPass))
                     .fullName("Dirección Escolar")
                     .email("direccion@marsella.edu")
                     .role("ROLE_DIRECTOR")
                     .build();
             return userRepository.save(user);
         });
+
+        if (!seedDemo) {
+            log.info("Demo data seeding is disabled (app.seed-demo=false). Starting with clean database.");
+            return;
+        }
 
         // Seed default student demo user if none exists
         userRepository.findByUsername("alumno").orElseGet(() -> {

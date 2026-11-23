@@ -36,11 +36,13 @@ import {
   Balance as BalanceIcon,
   CheckCircle as CheckIcon,
   Restore as RestoreIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import QuestionBuilderModal from '../components/QuestionBuilderModal';
+import ExportExamModal from '../components/ExportExamModal';
 
 export default function TeacherExamEditorPage() {
   const { id } = useParams();
@@ -80,6 +82,7 @@ export default function TeacherExamEditorPage() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Prompt dialog when a question's points are edited
   const [pointChangeDialog, setPointChangeDialog] = useState(null);
@@ -506,6 +509,17 @@ export default function TeacherExamEditorPage() {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {isEditing && (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<PrintIcon />}
+              onClick={() => setExportModalOpen(true)}
+              sx={{ fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}
+            >
+              Exportar Word / PDF
+            </Button>
+          )}
           <Button
             variant="contained"
             color="primary"
@@ -988,6 +1002,28 @@ export default function TeacherExamEditorPage() {
         onClose={() => setSnackMessage('')}
         message={snackMessage}
       />
+
+      {/* Export Exam Modal */}
+      {isEditing && (
+        <ExportExamModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          exam={{
+            id: id,
+            code: code,
+            title: title,
+            description: description,
+            grade: grade,
+            groupName: groupName,
+            block: block,
+            totalPoints: roundedTotal || targetTotalPoints,
+            questions: questions.map((q, idx) => ({
+              ...q,
+              questionOrder: idx + 1,
+            })),
+          }}
+        />
+      )}
     </Container>
   );
 }

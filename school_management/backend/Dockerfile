@@ -24,4 +24,4 @@ COPY --from=builder /build/target/*.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=America/Mexico_City", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
