@@ -116,7 +116,7 @@ RENEW_CRON="0 3 * * * certbot renew --quiet --post-hook 'docker restart marsella
 (crontab -l 2>/dev/null | grep -v certbot ; echo "$RENEW_CRON") | crontab -
 
 echo "=== 6. Levantando la aplicación con HTTPS ==="
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build frontend
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 
 echo ""
 echo "================================================================"
