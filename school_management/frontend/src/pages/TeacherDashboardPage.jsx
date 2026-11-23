@@ -42,11 +42,13 @@ import {
   Schedule as ScheduledIcon,
   HourglassBottom as ExpiredIcon,
   FileDownload as ExportIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ExportExamModal from '../components/ExportExamModal';
 
 export default function TeacherDashboardPage() {
   const [exams, setExams] = useState([]);
@@ -55,6 +57,7 @@ export default function TeacherDashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [copySnack, setCopySnack] = useState('');
+  const [exportModalExam, setExportModalExam] = useState(null);
   const [cloneExam, setCloneExam] = useState(null);
   const [cloneTitle, setCloneTitle] = useState('');
   const [cloneGrade, setCloneGrade] = useState('');
@@ -184,8 +187,8 @@ export default function TeacherDashboardPage() {
         grade: cloneGrade.trim(),
         groupName: cloneGroup.trim(),
         block: cloneExam.block || 1,
-        startDate: dayjs(cloneStartDate).toISOString(),
-        endDate: dayjs(cloneEndDate).toISOString(),
+        startDate: dayjs(cloneStartDate).format('YYYY-MM-DDTHH:mm:ss'),
+        endDate: dayjs(cloneEndDate).format('YYYY-MM-DDTHH:mm:ss'),
         code: cloneCode.trim() ? cloneCode.trim().toUpperCase() : null,
         isActive: cloneIsActive,
       };
@@ -452,6 +455,16 @@ export default function TeacherDashboardPage() {
                         {/* Actions */}
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                            <Tooltip title="Exportar examen (Word o PDF)">
+                              <IconButton
+                                size="small"
+                                sx={{ color: '#1E3A8A' }}
+                                onClick={() => setExportModalExam(exam)}
+                              >
+                                <PrintIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+
                             <Tooltip title="Descargar calificaciones en Excel">
                               <IconButton
                                 size="small"
@@ -654,6 +667,13 @@ export default function TeacherDashboardPage() {
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Export Exam Modal (Word, PDF, Print) */}
+      <ExportExamModal
+        open={!!exportModalExam}
+        onClose={() => setExportModalExam(null)}
+        exam={exportModalExam}
+      />
 
       {/* Toast notification for copy */}
       <Snackbar

@@ -118,11 +118,6 @@ export default function StudentJoinPage() {
     setError('');
   };
 
-  const handleUseDemo = () => {
-    setCode('DEMO-2026');
-    setError('');
-  };
-
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 4, sm: 6 } }}>
       {/* Top Floating Theme Toggle */}
@@ -260,6 +255,27 @@ export default function StudentJoinPage() {
                 }}
               >
                 {loading ? 'Verificando Código...' : 'Continuar'}
+              </Button>
+
+              {/* Botón directo a Quizz en Vivo */}
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => navigate('/quiz/live')}
+                sx={{
+                  py: 1.4,
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  borderColor: '#46178F',
+                  color: isDark ? '#c084fc' : '#46178F',
+                  bgcolor: isDark ? 'rgba(70, 23, 143, 0.15)' : 'rgba(70, 23, 143, 0.05)',
+                  '&:hover': {
+                    borderColor: '#46178F',
+                    bgcolor: isDark ? 'rgba(70, 23, 143, 0.25)' : 'rgba(70, 23, 143, 0.1)',
+                  },
+                }}
+              >
+                🎮 ¿Tienes un PIN de Quizz en Vivo? Entra aquí
               </Button>
 
               <Divider sx={{ my: 1 }} />

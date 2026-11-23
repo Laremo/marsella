@@ -1,5 +1,6 @@
 package com.marsella.exam.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,8 +21,13 @@ public class ExamResponse {
     private String grade;
     private String groupName;
     private Integer block;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime startDate;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime endDate;
+
     private Double totalPoints;
     private Boolean isActive;
     private Boolean isEditable;
@@ -29,5 +35,7 @@ public class ExamResponse {
     private Long submissionCount;
     private Long completedCount;
     private List<QuestionDto> questions;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 }

@@ -1,0 +1,58 @@
+package com.marsella.exam.dto;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class LiveQuizStateDto {
+    private String pin;
+    private Long quizId;
+    private String quizTitle;
+    private Long schoolGroupId;
+    private String schoolGroupName;
+    private String status;
+    private Integer currentQuestionIndex;
+    private Integer totalQuestions;
+    private Boolean isLastQuestion;
+    private QuizQuestionDto currentQuestion;
+    private Long timeRemainingMs;
+    private Integer totalTimeLimitSeconds;
+    private Integer connectedPlayersCount;
+    private Integer totalAnsweredCount;
+    private List<QuizPlayerSummaryDto> players;
+    private List<QuizPlayerSummaryDto> topPlayers;
+    private Map<String, Integer> optionStats;
+    private List<StudentRosterDto> groupRoster;
+
+    public Integer getPlayerCount() {
+        return connectedPlayersCount != null ? connectedPlayersCount : (players != null ? players.size() : 0);
+    }
+
+    @JsonProperty("answeredCount")
+    public Integer getAnsweredCount() {
+        return totalAnsweredCount;
+    }
+
+    @JsonProperty("leaderboard")
+    public List<QuizPlayerSummaryDto> getLeaderboard() {
+        return topPlayers;
+    }
+
+    @JsonProperty("podium")
+    public List<QuizPlayerSummaryDto> getPodium() {
+        return topPlayers != null && !topPlayers.isEmpty() ?
+                topPlayers.subList(0, Math.min(3, topPlayers.size())) : List.of();
+    }
+}
+

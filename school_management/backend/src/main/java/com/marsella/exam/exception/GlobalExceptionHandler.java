@@ -48,8 +48,8 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(NoSuchElementException ex) {
+    @ExceptionHandler({NoSuchElementException.class, ResourceNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                 "error", ex.getMessage(),
                 "message", ex.getMessage(),

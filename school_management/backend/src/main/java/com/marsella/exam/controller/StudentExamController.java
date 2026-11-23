@@ -75,6 +75,15 @@ public class StudentExamController {
         }
     }
 
+    @GetMapping("/{submissionId}/session")
+    public ResponseEntity<?> getExamSession(@PathVariable Long submissionId) {
+        try {
+            return ResponseEntity.ok(studentExamService.getExamSession(submissionId));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/{submissionId}")
     public ResponseEntity<?> getSubmissionStatus(@PathVariable Long submissionId) {
         try {

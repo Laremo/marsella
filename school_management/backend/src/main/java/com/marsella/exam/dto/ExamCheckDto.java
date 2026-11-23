@@ -1,5 +1,6 @@
 package com.marsella.exam.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,8 +22,13 @@ public class ExamCheckDto {
     private Integer block;
     private Double totalPoints;
     private Integer questionCount;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime startDate;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime endDate;
+
     private Boolean isActive;
     private Boolean isOngoing;
     private String statusMessage;

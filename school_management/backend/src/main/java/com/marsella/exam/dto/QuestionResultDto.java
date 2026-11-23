@@ -14,6 +14,7 @@ public class QuestionResultDto {
     private Long questionId;
     private Integer questionOrder;
     private String prompt;
+    private String imageUrl;
     private QuestionType type;
     private Double maxPoints;
     private Double awardedPoints;

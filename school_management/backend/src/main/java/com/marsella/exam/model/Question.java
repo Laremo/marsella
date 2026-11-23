@@ -26,6 +26,9 @@ public class Question {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String prompt;
 
+    @Column(columnDefinition = "TEXT")
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private QuestionType type;

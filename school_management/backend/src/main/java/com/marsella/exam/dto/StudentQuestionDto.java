@@ -14,6 +14,7 @@ public class StudentQuestionDto {
     private Long id;
     private Integer questionOrder;
     private String prompt;
+    private String imageUrl;
     private QuestionType type;
     private Double points;
     private String questionData;

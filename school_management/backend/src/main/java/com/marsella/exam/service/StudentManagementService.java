@@ -30,7 +30,7 @@ public class StudentManagementService {
 
     @Transactional(readOnly = true)
     public List<StudentDto> getGroupStudents(Long teacherId, Long groupId) {
-        SchoolGroup group = groupRepository.findByIdAndTeacherId(groupId, teacherId)
+        SchoolGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new NoSuchElementException("Grupo no encontrado"));
 
         List<Student> students = studentRepository.findBySchoolGroupIdOrderByFullNameAsc(group.getId());

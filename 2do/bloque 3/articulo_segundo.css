@@ -1,0 +1,23 @@
+body {
+  background-color: rgb(43, 0, 83);
+  font-family: 'roboto';
+}
+
+h1 {
+  color: #f1ff73;
+  text-shadow: #bbdec1 0px 0px 10px;
+}
+
+h2 {
+  color: #0edb0e;
+}
+
+p {
+  color: white;
+  font-size: 24px;
+}
+
+li {
+  color: white;
+  font-size: 20px;
+}

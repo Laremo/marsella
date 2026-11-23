@@ -398,6 +398,29 @@ export default function TeacherSubmissionsPage() {
                         />
                       </Box>
 
+                      {qr.imageUrl && (
+                        <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'center' }}>
+                          <Box
+                            component="img"
+                            src={qr.imageUrl}
+                            alt="Imagen de pregunta"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                            sx={{
+                              maxHeight: 200,
+                              maxWidth: '100%',
+                              objectFit: 'contain',
+                              borderRadius: '8px',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              bgcolor: isDark ? '#111827' : '#ffffff',
+                              p: 0.5,
+                            }}
+                          />
+                        </Box>
+                      )}
+
                       <Divider sx={{ my: 1 }} />
 
                       {qr.type === 'CODE_BLOCK' && (() => {

@@ -1,14 +1,13 @@
 package com.marsella.exam.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.marsella.exam.model.Exam;
-import com.marsella.exam.model.Question;
-import com.marsella.exam.model.QuestionType;
-import com.marsella.exam.model.User;
+import com.marsella.exam.model.*;
 import com.marsella.exam.repository.ExamRepository;
+import com.marsella.exam.repository.QuizRepository;
 import com.marsella.exam.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -23,20 +22,64 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final ExamRepository examRepository;
+    private final QuizRepository quizRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
 
+    @Value("${app.seed-demo:false}")
+    private boolean seedDemo;
+
+    @Value("${app.admin-initial-password:}")
+    private String adminInitialPassword;
+
+    @Value("${app.director-initial-password:}")
+    private String directorInitialPassword;
+
     @Override
     public void run(String... args) {
+        String adminPass = (adminInitialPassword != null && !adminInitialPassword.isBlank()) ? adminInitialPassword : "admin123";
+        String directorPass = (directorInitialPassword != null && !directorInitialPassword.isBlank()) ? directorInitialPassword : "directivo123";
+
         // Seed default professor if none exists
         User defaultTeacher = userRepository.findByUsername("admin").orElseGet(() -> {
-            log.info("Seeding default professor account: admin / admin123");
+            log.info("Seeding default professor account: admin");
             User user = User.builder()
                     .username("admin")
-                    .password(passwordEncoder.encode("admin123"))
+                    .password(passwordEncoder.encode(adminPass))
                     .fullName("Profesor Administrador")
                     .email("admin@marsella.edu")
                     .role("ROLE_TEACHER")
+                    .build();
+            return userRepository.save(user);
+        });
+
+        // Seed default director if none exists
+        userRepository.findByUsername("directivo").orElseGet(() -> {
+            log.info("Seeding default director account: directivo");
+            User user = User.builder()
+                    .username("directivo")
+                    .password(passwordEncoder.encode(directorPass))
+                    .fullName("Dirección Escolar")
+                    .email("direccion@marsella.edu")
+                    .role("ROLE_DIRECTOR")
+                    .build();
+            return userRepository.save(user);
+        });
+
+        if (!seedDemo) {
+            log.info("Demo data seeding is disabled (app.seed-demo=false). Starting with clean database.");
+            return;
+        }
+
+        // Seed default student demo user if none exists
+        userRepository.findByUsername("alumno").orElseGet(() -> {
+            log.info("Seeding default student account: alumno / alumno123");
+            User user = User.builder()
+                    .username("alumno")
+                    .password(passwordEncoder.encode("alumno123"))
+                    .fullName("Alumno Ejemplo")
+                    .email("alumno@marsella.edu")
+                    .role("ROLE_STUDENT")
                     .build();
             return userRepository.save(user);
         });
@@ -160,6 +203,115 @@ public class DataInitializer implements CommandLineRunner {
                 log.info("Demo exam DEMO-2026 seeded successfully!");
             } catch (Exception e) {
                 log.error("Failed to seed demo exam", e);
+            }
+        }
+
+        // Seed demo Quiz for user laremo (or fallback defaultTeacher) if no quizzes exist
+        if (quizRepository.count() == 0) {
+            User quizTeacher = userRepository.findByUsername("laremo").orElse(defaultTeacher);
+            log.info("Seeding demo quiz for user '{}'", quizTeacher.getUsername());
+            try {
+                Quiz demoQuiz = Quiz.builder()
+                        .title("Quiz de Demostración - Cultura Digital y Tecnología")
+                        .description("Quiz interactivo en vivo para poner a prueba conocimientos de tecnología, redes y cultura digital.")
+                        .defaultTimeLimitSeconds(15)
+                        .basePoints(1000)
+                        .teacher(quizTeacher)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                List<QuizQuestion> qList = new ArrayList<>();
+
+                // Question 1
+                List<Map<String, Object>> opt1 = List.of(
+                        Map.of("id", "A", "text", "HTTP", "color", "RED", "shape", "TRIANGLE", "isCorrect", false),
+                        Map.of("id", "B", "text", "HTTPS", "color", "BLUE", "shape", "DIAMOND", "isCorrect", true),
+                        Map.of("id", "C", "text", "FTP", "color", "YELLOW", "shape", "CIRCLE", "isCorrect", false),
+                        Map.of("id", "D", "text", "SMTP", "color", "GREEN", "shape", "SQUARE", "isCorrect", false)
+                );
+                qList.add(QuizQuestion.builder()
+                        .quiz(demoQuiz)
+                        .questionOrder(1)
+                        .prompt("¿Qué protocolo se utiliza comúnmente para navegar de forma segura y cifrada en la web?")
+                        .timeLimitSeconds(15)
+                        .points(1000)
+                        .optionsJson(objectMapper.writeValueAsString(opt1))
+                        .explanation("HTTPS cifra la comunicación punto a punto utilizando certificados SSL/TLS.")
+                        .build());
+
+                // Question 2
+                List<Map<String, Object>> opt2 = List.of(
+                        Map.of("id", "A", "text", "Disco de Estado Sólido (SSD)", "color", "RED", "shape", "TRIANGLE", "isCorrect", false),
+                        Map.of("id", "B", "text", "Memoria RAM", "color", "BLUE", "shape", "DIAMOND", "isCorrect", false),
+                        Map.of("id", "C", "text", "Procesador (CPU)", "color", "YELLOW", "shape", "CIRCLE", "isCorrect", true),
+                        Map.of("id", "D", "text", "Tarjeta Gráfica (GPU)", "color", "GREEN", "shape", "SQUARE", "isCorrect", false)
+                );
+                qList.add(QuizQuestion.builder()
+                        .quiz(demoQuiz)
+                        .questionOrder(2)
+                        .prompt("¿Cuál de los siguientes componentes es considerado el 'cerebro' principal de una computadora?")
+                        .timeLimitSeconds(15)
+                        .points(1000)
+                        .optionsJson(objectMapper.writeValueAsString(opt2))
+                        .explanation("La CPU (Unidad Central de Procesamiento) ejecuta todas las instrucciones fundamentales del sistema.")
+                        .build());
+
+                // Question 3
+                List<Map<String, Object>> opt3 = List.of(
+                        Map.of("id", "A", "text", "Cola (Queue)", "color", "RED", "shape", "TRIANGLE", "isCorrect", false),
+                        Map.of("id", "B", "text", "Pila (Stack)", "color", "BLUE", "shape", "DIAMOND", "isCorrect", true),
+                        Map.of("id", "C", "text", "Árbol Binario", "color", "YELLOW", "shape", "CIRCLE", "isCorrect", false),
+                        Map.of("id", "D", "text", "Grafo", "color", "GREEN", "shape", "SQUARE", "isCorrect", false)
+                );
+                qList.add(QuizQuestion.builder()
+                        .quiz(demoQuiz)
+                        .questionOrder(3)
+                        .prompt("¿Qué estructura de datos opera bajo el principio LIFO (Last In, First Out)?")
+                        .timeLimitSeconds(15)
+                        .points(1000)
+                        .optionsJson(objectMapper.writeValueAsString(opt3))
+                        .explanation("En una Pila (Stack), el último elemento añadido es el primero en ser retirado.")
+                        .build());
+
+                // Question 4
+                List<Map<String, Object>> opt4 = List.of(
+                        Map.of("id", "A", "text", "1989", "color", "RED", "shape", "TRIANGLE", "isCorrect", true),
+                        Map.of("id", "B", "text", "1995", "color", "BLUE", "shape", "DIAMOND", "isCorrect", false),
+                        Map.of("id", "C", "text", "2001", "color", "YELLOW", "shape", "CIRCLE", "isCorrect", false),
+                        Map.of("id", "D", "text", "1975", "color", "GREEN", "shape", "SQUARE", "isCorrect", false)
+                );
+                qList.add(QuizQuestion.builder()
+                        .quiz(demoQuiz)
+                        .questionOrder(4)
+                        .prompt("¿En qué año propuso Tim Berners-Lee la World Wide Web en el CERN?")
+                        .timeLimitSeconds(15)
+                        .points(1000)
+                        .optionsJson(objectMapper.writeValueAsString(opt4))
+                        .explanation("Tim Berners-Lee escribió la primera propuesta de la WWW en marzo de 1989.")
+                        .build());
+
+                // Question 5
+                List<Map<String, Object>> opt5 = List.of(
+                        Map.of("id", "A", "text", "3306", "color", "RED", "shape", "TRIANGLE", "isCorrect", false),
+                        Map.of("id", "B", "text", "8080", "color", "BLUE", "shape", "DIAMOND", "isCorrect", false),
+                        Map.of("id", "C", "text", "5432", "color", "YELLOW", "shape", "CIRCLE", "isCorrect", true),
+                        Map.of("id", "D", "text", "27017", "color", "GREEN", "shape", "SQUARE", "isCorrect", false)
+                );
+                qList.add(QuizQuestion.builder()
+                        .quiz(demoQuiz)
+                        .questionOrder(5)
+                        .prompt("¿Cuál es el puerto de red por defecto para conexiones a una base de datos PostgreSQL?")
+                        .timeLimitSeconds(15)
+                        .points(1000)
+                        .optionsJson(objectMapper.writeValueAsString(opt5))
+                        .explanation("El puerto oficial estándar registrado para PostgreSQL es el 5432.")
+                        .build());
+
+                demoQuiz.setQuestions(qList);
+                quizRepository.save(demoQuiz);
+                log.info("Demo quiz seeded successfully with 5 questions!");
+            } catch (Exception e) {
+                log.error("Failed to seed demo quiz", e);
             }
         }
     }

@@ -47,12 +47,24 @@ public class AuthService {
             throw new IllegalArgumentException("El correo electrónico ya está registrado");
         }
 
+        String assignedRole = "ROLE_TEACHER";
+        if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
+            String r = request.getRole().trim().toUpperCase();
+            if (r.equals("ROLE_DIRECTOR") || r.equals("DIRECTOR")) {
+                assignedRole = "ROLE_DIRECTOR";
+            } else if (r.equals("ROLE_STUDENT") || r.equals("STUDENT") || r.equals("ALUMNO")) {
+                assignedRole = "ROLE_STUDENT";
+            } else {
+                assignedRole = "ROLE_TEACHER";
+            }
+        }
+
         User user = User.builder()
                 .username(request.getUsername().trim())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName().trim())
                 .email(request.getEmail().trim().toLowerCase())
-                .role("ROLE_TEACHER")
+                .role(assignedRole)
                 .build();
 
         userRepository.save(user);

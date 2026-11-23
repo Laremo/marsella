@@ -28,6 +28,7 @@ public class ExamService {
     private final StudentSubmissionRepository submissionRepository;
     private final ObjectMapper objectMapper;
     private final ExcelExportService excelExportService;
+    private final ExamDocumentExportService examDocumentExportService;
     private final GradingService gradingService;
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private final SecureRandom random = new SecureRandom();
@@ -39,8 +40,14 @@ public class ExamService {
     }
 
     @Transactional(readOnly = true)
+    public List<ExamResponse> getAllExams() {
+        List<Exam> exams = examRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+        return exams.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public ExamResponse getTeacherExam(Long teacherId, Long examId) {
-        Exam exam = examRepository.findByIdAndTeacherId(examId, teacherId)
+        Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
         return mapToResponse(exam);
     }
@@ -85,6 +92,7 @@ public class ExamService {
                         .exam(exam)
                         .questionOrder(order++)
                         .prompt(qDto.getPrompt().trim())
+                        .imageUrl(qDto.getImageUrl())
                         .type(qDto.getType())
                         .points(points)
                         .questionData(qDto.getQuestionData())
@@ -165,6 +173,7 @@ public class ExamService {
                         .exam(cloned)
                         .questionOrder(sq.getQuestionOrder())
                         .prompt(sq.getPrompt())
+                        .imageUrl(sq.getImageUrl())
                         .type(sq.getType())
                         .points(sq.getPoints())
                         .questionData(sq.getQuestionData())
@@ -224,6 +233,7 @@ public class ExamService {
                     Question existing = existingById.get(qDto.getId());
                     existing.setQuestionOrder(order++);
                     existing.setPrompt(qDto.getPrompt().trim());
+                    existing.setImageUrl(qDto.getImageUrl());
                     existing.setType(qDto.getType());
                     existing.setPoints(points);
                     existing.setQuestionData(qDto.getQuestionData());
@@ -234,6 +244,7 @@ public class ExamService {
                             .exam(exam)
                             .questionOrder(order++)
                             .prompt(qDto.getPrompt().trim())
+                            .imageUrl(qDto.getImageUrl())
                             .type(qDto.getType())
                             .points(points)
                             .questionData(qDto.getQuestionData())
@@ -377,6 +388,49 @@ public class ExamService {
     }
 
     @Transactional(readOnly = true)
+    public byte[] exportExamToDocx(User user, Long examId, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        try {
+            return examDocumentExportService.generateExamDocx(exam, withAnswers);
+        } catch (Exception e) {
+            log.error("Error al exportar examen a Word {}", examId, e);
+            throw new RuntimeException("Error al exportar el examen a Word: " + e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportExamToPdf(User user, Long examId, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        try {
+            return examDocumentExportService.generateExamPdf(exam, withAnswers);
+        } catch (Exception e) {
+            log.error("Error al exportar examen a PDF {}", examId, e);
+            throw new RuntimeException("Error al exportar el examen a PDF: " + e.getMessage());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public String getExamDocumentFilename(User user, Long examId, String extension, boolean withAnswers) {
+        Exam exam = findExamForUser(user, examId);
+        String prefix = withAnswers ? "Clave_Respuestas_" : "Examen_";
+        String cleanTitle = exam.getTitle() != null ? exam.getTitle().trim().replaceAll("[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]", "_") : "Examen";
+        if (cleanTitle.length() > 30) cleanTitle = cleanTitle.substring(0, 30);
+        String cleanCode = exam.getCode() != null ? "_" + exam.getCode().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        String cleanGrade = exam.getGrade() != null ? "_" + exam.getGrade().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        String cleanGroup = exam.getGroupName() != null ? exam.getGroupName().replaceAll("[^a-zA-Z0-9_-]", "") : "";
+        return prefix + cleanTitle + cleanGrade + cleanGroup + cleanCode + "." + extension;
+    }
+
+    private Exam findExamForUser(User user, Long examId) {
+        if ("ROLE_DIRECTOR".equals(user.getRole())) {
+            return examRepository.findById(examId)
+                    .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
+        }
+        return examRepository.findByIdAndTeacherId(examId, user.getId())
+                .orElseThrow(() -> new NoSuchElementException("Examen no encontrado o no tiene permisos para acceder a él"));
+    }
+
+    @Transactional(readOnly = true)
     public String getExamExportFilename(Long teacherId, Long examId) {
         Exam exam = examRepository.findByIdAndTeacherId(examId, teacherId)
                 .orElseThrow(() -> new NoSuchElementException("Examen no encontrado"));
@@ -416,6 +470,7 @@ public class ExamService {
                 .id(q.getId())
                 .questionOrder(q.getQuestionOrder())
                 .prompt(q.getPrompt())
+                .imageUrl(q.getImageUrl())
                 .type(q.getType())
                 .points(q.getPoints())
                 .questionData(q.getQuestionData())

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Box,
@@ -35,22 +35,34 @@ import {
   Lock as LockIcon,
   Balance as BalanceIcon,
   CheckCircle as CheckIcon,
+  Restore as RestoreIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import QuestionBuilderModal from '../components/QuestionBuilderModal';
+import ExportExamModal from '../components/ExportExamModal';
 
 export default function TeacherExamEditorPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const cloneFrom = searchParams.get('cloneFrom');
   const isEditing = !!id;
+  const draftKey = isEditing
+    ? `exam_draft_edit_${id}`
+    : cloneFrom
+    ? `exam_draft_clone_${cloneFrom}`
+    : 'exam_draft_new';
+  const initialLoadDoneRef = useRef(false);
+  const isSavedRef = useRef(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
   const navigate = useNavigate();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const [loading, setLoading] = useState(isEditing);
+  const [loading, setLoading] = useState(isEditing || Boolean(cloneFrom));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -70,80 +82,190 @@ export default function TeacherExamEditorPage() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   // Prompt dialog when a question's points are edited
   const [pointChangeDialog, setPointChangeDialog] = useState(null);
   const [snackMessage, setSnackMessage] = useState('');
 
   useEffect(() => {
-    if (isEditing) {
-      const fetchExam = async () => {
-        try {
-          const res = await api.get(`/teacher/exams/${id}`);
-          const exam = res.data;
-          setTitle(exam.title);
-          setDescription(exam.description || '');
-          setGrade(exam.grade || '2do');
-          setGroupName(exam.groupName || 'A');
-          setBlock(exam.block || 1);
-          setCode(exam.code);
-          setStartDate(dayjs(exam.startDate).format('YYYY-MM-DDTHH:mm'));
-          setEndDate(dayjs(exam.endDate).format('YYYY-MM-DDTHH:mm'));
-          setIsActive(exam.isActive);
-          setQuestions(exam.questions || []);
-          if (exam.totalPoints && exam.totalPoints > 0) {
-            setTargetTotalPoints(exam.totalPoints);
-          }
-        } catch (err) {
-          setError('Error al cargar la información del examen.');
-        } finally {
+    // 1. Check if there is an unsaved draft
+    const savedDraft = localStorage.getItem(draftKey);
+    let draftRestored = false;
+
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && (parsed.title || parsed.questions?.length > 0)) {
+          setTitle(parsed.title || '');
+          setDescription(parsed.description || '');
+          setGrade(parsed.grade || '2do');
+          setGroupName(parsed.groupName || 'A');
+          setBlock(parsed.block || 1);
+          setCode(parsed.code || '');
+          if (parsed.startDate) setStartDate(parsed.startDate);
+          if (parsed.endDate) setEndDate(parsed.endDate);
+          setIsActive(parsed.isActive !== undefined ? parsed.isActive : true);
+          setQuestions(parsed.questions || []);
+          if (parsed.targetTotalPoints) setTargetTotalPoints(parsed.targetTotalPoints);
+          setHasRestoredDraft(true);
+          setSnackMessage('Se recuperó tu borrador no guardado de este examen.');
+          draftRestored = true;
           setLoading(false);
+          initialLoadDoneRef.current = true;
         }
-      };
-      fetchExam();
-    } else if (cloneFrom) {
-      const fetchClone = async () => {
-        try {
-          const res = await api.get(`/teacher/exams/${cloneFrom}`);
-          const exam = res.data;
-          let nextGroup = 'B';
-          if (exam.groupName) {
-            const g = exam.groupName.trim().toUpperCase();
-            if (g === 'A') nextGroup = 'B';
-            else if (g === 'B') nextGroup = 'C';
-            else if (g === 'C') nextGroup = 'D';
-            else nextGroup = exam.groupName;
-          }
-          setTitle(`${exam.title} (Grupo ${nextGroup})`);
-          setDescription(exam.description || '');
-          setGrade(exam.grade || '2do');
-          setGroupName(nextGroup);
-          setBlock(exam.block || 1);
-          setCode(''); // Clear so a new unique code is generated
-          setStartDate(dayjs().format('YYYY-MM-DDTHH:mm'));
-          setEndDate(dayjs().add(2, 'hour').format('YYYY-MM-DDTHH:mm'));
-          setIsActive(true);
-          if (exam.totalPoints && exam.totalPoints > 0) {
-            setTargetTotalPoints(exam.totalPoints);
-          }
-          const clonedQuestions = (exam.questions || []).map((q, idx) => ({
-            questionOrder: idx + 1,
-            prompt: q.prompt,
-            type: q.type,
-            points: q.points,
-            questionData: q.questionData,
-            correctAnswer: q.correctAnswer,
-          }));
-          setQuestions(clonedQuestions);
-        } catch (err) {
-          setError('Error al cargar la información para clonar el examen.');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchClone();
+      } catch (e) {
+        console.error('Error parsing exam draft', e);
+      }
     }
-  }, [id, isEditing, cloneFrom]);
+
+    if (!draftRestored) {
+      if (isEditing) {
+        const fetchExam = async () => {
+          try {
+            const res = await api.get(`/teacher/exams/${id}`);
+            const exam = res.data;
+            setTitle(exam.title);
+            setDescription(exam.description || '');
+            setGrade(exam.grade || '2do');
+            setGroupName(exam.groupName || 'A');
+            setBlock(exam.block || 1);
+            setCode(exam.code);
+            setStartDate(dayjs(exam.startDate).format('YYYY-MM-DDTHH:mm'));
+            setEndDate(dayjs(exam.endDate).format('YYYY-MM-DDTHH:mm'));
+            setIsActive(exam.isActive);
+            setQuestions(exam.questions || []);
+            if (exam.totalPoints && exam.totalPoints > 0) {
+              setTargetTotalPoints(exam.totalPoints);
+            }
+          } catch (err) {
+            setError('Error al cargar la información del examen.');
+          } finally {
+            setLoading(false);
+            initialLoadDoneRef.current = true;
+          }
+        };
+        fetchExam();
+      } else if (cloneFrom) {
+        const fetchClone = async () => {
+          try {
+            const res = await api.get(`/teacher/exams/${cloneFrom}`);
+            const exam = res.data;
+            let nextGroup = 'B';
+            if (exam.groupName) {
+              const g = exam.groupName.trim().toUpperCase();
+              if (g === 'A') nextGroup = 'B';
+              else if (g === 'B') nextGroup = 'C';
+              else if (g === 'C') nextGroup = 'D';
+              else nextGroup = exam.groupName;
+            }
+            setTitle(`${exam.title} (Grupo ${nextGroup})`);
+            setDescription(exam.description || '');
+            setGrade(exam.grade || '2do');
+            setGroupName(nextGroup);
+            setBlock(exam.block || 1);
+            setCode(''); // Clear so a new unique code is generated
+            setStartDate(dayjs().format('YYYY-MM-DDTHH:mm'));
+            setEndDate(dayjs().add(2, 'hour').format('YYYY-MM-DDTHH:mm'));
+            setIsActive(true);
+            if (exam.totalPoints && exam.totalPoints > 0) {
+              setTargetTotalPoints(exam.totalPoints);
+            }
+            const clonedQuestions = (exam.questions || []).map((q, idx) => ({
+              questionOrder: idx + 1,
+              prompt: q.prompt,
+              imageUrl: q.imageUrl,
+              type: q.type,
+              points: q.points,
+              questionData: q.questionData,
+              correctAnswer: q.correctAnswer,
+            }));
+            setQuestions(clonedQuestions);
+          } catch (err) {
+            setError('Error al cargar la información para clonar el examen.');
+          } finally {
+            setLoading(false);
+            initialLoadDoneRef.current = true;
+          }
+        };
+        fetchClone();
+      } else {
+        setLoading(false);
+        initialLoadDoneRef.current = true;
+      }
+    }
+  }, [id, isEditing, cloneFrom, draftKey]);
+
+  // Auto-save exam draft on state changes
+  useEffect(() => {
+    if (!initialLoadDoneRef.current || isSavedRef.current) return;
+    const draft = {
+      title,
+      description,
+      grade,
+      groupName,
+      block,
+      code,
+      startDate,
+      endDate,
+      isActive,
+      questions,
+      targetTotalPoints,
+      savedAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch (e) {
+      console.warn('LocalStorage error saving exam draft', e);
+    }
+  }, [
+    title,
+    description,
+    grade,
+    groupName,
+    block,
+    code,
+    startDate,
+    endDate,
+    isActive,
+    questions,
+    targetTotalPoints,
+    draftKey,
+  ]);
+
+  // Prevent accidental close when unsaved
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      const hasContent = title.trim().length > 0 || questions.length > 0;
+      if (hasContent && !isSavedRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [title, questions]);
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftKey);
+    setHasRestoredDraft(false);
+    if (isEditing) {
+      window.location.reload();
+    } else {
+      setTitle('');
+      setDescription('');
+      setGrade('2do');
+      setGroupName('A');
+      setBlock(1);
+      setCode('');
+      setStartDate(dayjs().format('YYYY-MM-DDTHH:mm'));
+      setEndDate(dayjs().add(2, 'hour').format('YYYY-MM-DDTHH:mm'));
+      setIsActive(true);
+      setQuestions([]);
+      setTargetTotalPoints(10);
+    }
+    setSnackMessage('Borrador descartado.');
+  };
 
   // Smart 2-decimal distribution algorithm that ensures exact total
   const calculateSmartDistribution = (total, count) => {
@@ -346,6 +468,11 @@ export default function TeacherExamEditorPage() {
       } else {
         await api.post('/teacher/exams', payload);
       }
+
+      // Mark saved and clean up draft from localStorage
+      isSavedRef.current = true;
+      localStorage.removeItem(draftKey);
+
       navigate('/teacher/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Error al guardar el examen');
@@ -382,6 +509,17 @@ export default function TeacherExamEditorPage() {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {isEditing && (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<PrintIcon />}
+              onClick={() => setExportModalOpen(true)}
+              sx={{ fontWeight: 700, borderRadius: '8px', textTransform: 'none' }}
+            >
+              Exportar Word / PDF
+            </Button>
+          )}
           <Button
             variant="contained"
             color="primary"
@@ -394,6 +532,27 @@ export default function TeacherExamEditorPage() {
           </Button>
         </Box>
       </Box>
+
+      {/* Auto-saved draft banner */}
+      {hasRestoredDraft && (
+        <Alert
+          severity="info"
+          icon={<RestoreIcon />}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={handleDiscardDraft}
+              sx={{ fontWeight: 800, textTransform: 'none' }}
+            >
+              Descartar borrador
+            </Button>
+          }
+          sx={{ mb: 3, borderRadius: '10px', alignItems: 'center' }}
+        >
+          Se recuperó tu borrador no guardado. Tu progreso se guarda automáticamente y no se perderá al recargar o volver atrás.
+        </Alert>
+      )}
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
@@ -688,6 +847,28 @@ export default function TeacherExamEditorPage() {
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
                             {q.prompt}
                           </Typography>
+                          {q.imageUrl && (
+                            <Box sx={{ mt: 1 }}>
+                              <Box
+                                component="img"
+                                src={q.imageUrl}
+                                alt="Imagen de pregunta"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                                sx={{
+                                  maxHeight: 120,
+                                  maxWidth: 240,
+                                  objectFit: 'contain',
+                                  borderRadius: '6px',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: isDark ? '#111827' : '#f8fafc',
+                                  p: 0.5,
+                                }}
+                              />
+                            </Box>
+                          )}
                         </Box>
                       </Box>
 
@@ -821,6 +1002,28 @@ export default function TeacherExamEditorPage() {
         onClose={() => setSnackMessage('')}
         message={snackMessage}
       />
+
+      {/* Export Exam Modal */}
+      {isEditing && (
+        <ExportExamModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          exam={{
+            id: id,
+            code: code,
+            title: title,
+            description: description,
+            grade: grade,
+            groupName: groupName,
+            block: block,
+            totalPoints: roundedTotal || targetTotalPoints,
+            questions: questions.map((q, idx) => ({
+              ...q,
+              questionOrder: idx + 1,
+            })),
+          }}
+        />
+      )}
     </Container>
   );
 }

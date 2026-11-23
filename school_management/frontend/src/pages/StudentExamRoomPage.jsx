@@ -45,10 +45,27 @@ export default function StudentExamRoomPage() {
   const { isDark, toggleTheme } = useColorTheme();
 
   const [session, setSession] = useState(() => {
-    return location.state?.session || JSON.parse(sessionStorage.getItem('studentSession') || 'null');
+    const rawLocal = localStorage.getItem(`studentSession_${submissionId}`);
+    if (rawLocal) {
+      try { return JSON.parse(rawLocal); } catch (e) {}
+    }
+    const rawSession = sessionStorage.getItem('studentSession');
+    if (rawSession) {
+      try {
+        const parsed = JSON.parse(rawSession);
+        if (String(parsed.submissionId) === String(submissionId)) return parsed;
+      } catch (e) {}
+    }
+    return location.state?.session || null;
   });
 
   const [answers, setAnswers] = useState(() => {
+    // 1. Try local answers backup
+    const localAnswersRaw = localStorage.getItem(`exam_answers_${submissionId}`);
+    if (localAnswersRaw) {
+      try { return JSON.parse(localAnswersRaw); } catch (e) {}
+    }
+    // 2. Try session saved answers
     if (session?.savedAnswersJson) {
       try {
         return JSON.parse(session.savedAnswersJson);
@@ -59,6 +76,7 @@ export default function StudentExamRoomPage() {
     return {};
   });
 
+  const [loadingSession, setLoadingSession] = useState(!session);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'saving', 'error'
   const [lastSavedTime, setLastSavedTime] = useState(new Date());
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -67,14 +85,22 @@ export default function StudentExamRoomPage() {
 
   const saveTimeoutRef = useRef(null);
 
-  const localSubmitted = sessionStorage.getItem(`exam_submitted_${submissionId}`);
+  const localSubmitted = sessionStorage.getItem(`exam_submitted_${submissionId}`) || localStorage.getItem(`exam_submitted_${submissionId}`);
   const isAlreadyFinished = Boolean(
     localSubmitted ||
     session?.isCompleted ||
     session?.status === 'ALREADY_SUBMITTED'
   );
 
-  // If already submitted or no session, redirect accordingly
+  // Sync session and answers to persistent storage whenever they change
+  useEffect(() => {
+    if (session && String(session.submissionId) === String(submissionId)) {
+      localStorage.setItem(`studentSession_${submissionId}`, JSON.stringify(session));
+      sessionStorage.setItem('studentSession', JSON.stringify(session));
+    }
+  }, [session, submissionId]);
+
+  // If already submitted or no session, fetch or redirect accordingly
   useEffect(() => {
     // 1. Check if already marked as submitted in this browser session
     if (localSubmitted) {
@@ -98,14 +124,51 @@ export default function StudentExamRoomPage() {
       return;
     }
 
-    // 3. If no session found in state or storage, redirect back to join
+    let isMounted = true;
+
+    // 3. If no session found in memory or storage, recover from backend
     if (!session || String(session.submissionId) !== String(submissionId)) {
-      navigate('/', { replace: true });
+      setLoadingSession(true);
+      api.get(`/student/exams/${submissionId}/session`)
+        .then((res) => {
+          if (!isMounted) return;
+          const recovered = res.data;
+          if (recovered?.isCompleted || recovered?.status === 'ALREADY_SUBMITTED') {
+            const finishedPayload = {
+              result: recovered,
+              examTitle: recovered.examTitle,
+              studentName: recovered.studentName,
+              session: recovered,
+            };
+            localStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
+            sessionStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
+            navigate(`/exam/finished/${submissionId}`, { replace: true, state: finishedPayload });
+            return;
+          }
+
+          setSession(recovered);
+          localStorage.setItem(`studentSession_${submissionId}`, JSON.stringify(recovered));
+          sessionStorage.setItem('studentSession', JSON.stringify(recovered));
+
+          // If local answers aren't set yet, populate from recovered server answers
+          const localAns = localStorage.getItem(`exam_answers_${submissionId}`);
+          if (!localAns && recovered.savedAnswersJson) {
+            try {
+              setAnswers(JSON.parse(recovered.savedAnswersJson));
+            } catch (e) {}
+          }
+          setLoadingSession(false);
+        })
+        .catch((err) => {
+          console.error('Error recovering exam session', err);
+          if (isMounted) {
+            navigate('/', { replace: true });
+          }
+        });
       return;
     }
 
-    // 4. Check backend to verify if already completed in case of backward navigation or external submission
-    let isMounted = true;
+    // 4. Check backend to verify if completed externally or ended
     api.get(`/student/exams/${submissionId}`)
       .then((res) => {
         if (!isMounted) return;
@@ -120,6 +183,7 @@ export default function StudentExamRoomPage() {
               status: 'ALREADY_SUBMITTED',
             },
           };
+          localStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
           sessionStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
           navigate(`/exam/finished/${submissionId}`, { replace: true, state: finishedPayload });
         }
@@ -161,6 +225,10 @@ export default function StudentExamRoomPage() {
       [String(questionId)]: newAnswer,
     };
     setAnswers(updated);
+    // Instant backup to localStorage immediately on keystroke/choice
+    try {
+      localStorage.setItem(`exam_answers_${submissionId}`, JSON.stringify(updated));
+    } catch (e) {}
     triggerAutoSave(updated);
   };
 
@@ -185,7 +253,10 @@ export default function StudentExamRoomPage() {
       };
 
       // Store submitted exam payload so that navigating back or refreshing immediately shows results
+      localStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
       sessionStorage.setItem(`exam_submitted_${submissionId}`, JSON.stringify(finishedPayload));
+      localStorage.removeItem(`studentSession_${submissionId}`);
+      localStorage.removeItem(`exam_answers_${submissionId}`);
       sessionStorage.removeItem('studentSession');
 
       // Use replace: true so the room page is replaced in the history stack
@@ -201,10 +272,13 @@ export default function StudentExamRoomPage() {
     }
   };
 
-  if (isAlreadyFinished || !session) {
+  if (isAlreadyFinished || !session || loadingSession) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', gap: 2 }}>
         <CircularProgress />
+        <Typography variant="body2" color="text.secondary">
+          Recuperando tus preguntas y respuestas...
+        </Typography>
       </Box>
     );
   }
@@ -393,6 +467,37 @@ export default function StudentExamRoomPage() {
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>
                     {q.prompt}
                   </Typography>
+
+                  {/* Question Image if present */}
+                  {q.imageUrl && (
+                    <Box
+                      sx={{
+                        my: 2,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        p: 1.5,
+                        borderRadius: '10px',
+                        bgcolor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                        border: `1px solid ${theme.palette.divider}`,
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={q.imageUrl}
+                        alt="Imagen de apoyo para la pregunta"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                        sx={{
+                          maxHeight: { xs: 260, sm: 380 },
+                          maxWidth: '100%',
+                          objectFit: 'contain',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </Box>
+                  )}
 
                   {/* Render based on Question Type */}
                   {q.type === 'MULTIPLE_CHOICE' && (
